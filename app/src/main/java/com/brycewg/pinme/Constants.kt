@@ -8,6 +8,10 @@ object Constants {
     const val PREF_MAX_HISTORY_COUNT = "max_history_count"  // 最大历史记录数量 (1-20)
     const val DEFAULT_MAX_HISTORY_COUNT = 20                // 默认最大历史记录数量
 
+    // 截图压缩配置
+    const val SCREENSHOT_MAX_WIDTH = 720                  // 截图最大宽度（按比例缩放）
+
+
     // LLM 配置
     const val PREF_LLM_PROVIDER = "llm_provider"           // 供应商类型: zhipu / siliconflow / custom
     const val PREF_LLM_API_KEY = "llm_api_key"             // API Key

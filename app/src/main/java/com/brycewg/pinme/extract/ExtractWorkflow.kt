@@ -51,7 +51,7 @@ class ExtractWorkflow(
         val marketItems = dao.getEnabledMarketItems()
         val systemPrompt = buildSystemPrompt(marketItems)
 
-        val imageBase64 = bitmap.toPngBase64()
+        val imageBase64 = bitmap.toCompressedBase64()
         val userPrompt = buildUserPrompt(marketItems)
 
         val modelOutput = vllmClient.chatCompletionWithImage(
@@ -60,7 +60,7 @@ class ExtractWorkflow(
             model = model,
             systemPrompt = systemPrompt,
             userPrompt = userPrompt,
-            imagePngBase64 = imageBase64,
+            imageBase64 = imageBase64,
             temperature = temperature
         )
 
@@ -85,11 +85,30 @@ class ExtractWorkflow(
         return entity.copy(id = id)
     }
 
-    private fun Bitmap.toPngBase64(): String {
+    /**
+     * 将 Bitmap 压缩为 PNG 格式的 Base64 字符串
+     * - 按比例缩放到最大宽度以减少传输数据量
+     * - 使用 PNG 格式确保 VLM 兼容性
+     */
+    private fun Bitmap.toCompressedBase64(): String {
+        val scaledBitmap = scaleToMaxWidth(Constants.SCREENSHOT_MAX_WIDTH)
         val stream = ByteArrayOutputStream()
-        compress(Bitmap.CompressFormat.PNG, 100, stream)
-        val bytes = stream.toByteArray()
-        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+        scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        if (scaledBitmap !== this) {
+            scaledBitmap.recycle()
+        }
+        return Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+    }
+
+    /**
+     * 按比例缩放 Bitmap 到指定最大宽度
+     * 如果原图宽度小于等于目标宽度，返回原图
+     */
+    private fun Bitmap.scaleToMaxWidth(maxWidth: Int): Bitmap {
+        if (width <= maxWidth) return this
+        val scale = maxWidth.toFloat() / width
+        val newHeight = (height * scale).toInt()
+        return Bitmap.createScaledBitmap(this, maxWidth, newHeight, true)
     }
 
     private fun buildUserPrompt(marketItems: List<MarketItemEntity>): String {

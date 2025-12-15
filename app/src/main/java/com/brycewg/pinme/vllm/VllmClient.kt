@@ -23,7 +23,7 @@ class VllmClient(
         model: String,
         systemPrompt: String,
         userPrompt: String,
-        imagePngBase64: String,
+        imageBase64: String,
         temperature: Double = 0.1,
         maxTokens: Int = 256
     ): String = withContext(Dispatchers.IO) {
@@ -57,7 +57,7 @@ class VllmClient(
                                             put(
                                                 "image_url",
                                                 JSONObject().apply {
-                                                    put("url", "data:image/png;base64,$imagePngBase64")
+                                                    put("url", "data:image/png;base64,$imageBase64")
                                                 }
                                             )
                                         }
