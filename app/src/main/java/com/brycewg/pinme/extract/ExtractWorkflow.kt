@@ -74,6 +74,14 @@ class ExtractWorkflow(
         )
 
         val id = dao.insertExtract(entity)
+
+        // 清理超出限制的旧记录
+        val maxCount = dao.getPreference(Constants.PREF_MAX_HISTORY_COUNT)
+            ?.toIntOrNull()
+            ?.coerceIn(1, 20)
+            ?: Constants.DEFAULT_MAX_HISTORY_COUNT
+        dao.trimExtractsToLimit(maxCount)
+
         return entity.copy(id = id)
     }
 

@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -30,15 +32,24 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,14 +59,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.getSystemService
+import com.brycewg.pinme.Constants
 import com.brycewg.pinme.capture.CaptureActivity
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
-import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+private const val PAGE_SIZE = 5
 
 @Composable
 fun ExtractHome() {
@@ -63,10 +77,72 @@ fun ExtractHome() {
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
 
-    val extractsFlow: Flow<List<ExtractEntity>> = dao.getLatestExtractsFlow(20)
-    val extracts by extractsFlow.collectAsState(initial = emptyList())
-
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
+
+    // 分页状态
+    val extracts = remember { mutableStateListOf<ExtractEntity>() }
+    var totalCount by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(false) }
+    var currentPage by remember { mutableIntStateOf(0) }
+
+    val hasMore by remember {
+        derivedStateOf { extracts.size < totalCount }
+    }
+
+    // 加载更多数据的函数
+    val loadMore: suspend () -> Unit = {
+        if (!isLoading && hasMore) {
+            isLoading = true
+            val newItems = dao.getExtractsWithOffset(PAGE_SIZE, currentPage * PAGE_SIZE)
+            if (newItems.isNotEmpty()) {
+                extracts.addAll(newItems)
+                currentPage++
+            }
+            isLoading = false
+        }
+    }
+
+    // 刷新数据的函数（重新加载第一页）
+    val refresh: suspend () -> Unit = {
+        isLoading = true
+        totalCount = dao.getExtractCount()
+        val newItems = dao.getExtractsWithOffset(PAGE_SIZE, 0)
+        extracts.clear()
+        extracts.addAll(newItems)
+        currentPage = 1
+        isLoading = false
+    }
+
+    // 初始加载
+    LaunchedEffect(Unit) {
+        refresh()
+    }
+
+    // 监听数据库变化以刷新列表
+    LaunchedEffect(Unit) {
+        dao.getLatestExtractsFlow(1).collectLatest {
+            // 数据库有变化时刷新
+            refresh()
+        }
+    }
+
+    val listState = rememberLazyListState()
+
+    // 监听滚动到底部
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val layoutInfo = listState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisibleItem >= totalItems - 2 && totalItems > 0
+        }
+            .distinctUntilChanged()
+            .collectLatest { shouldLoadMore ->
+                if (shouldLoadMore && hasMore && !isLoading) {
+                    loadMore()
+                }
+            }
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -89,7 +165,7 @@ fun ExtractHome() {
 
                 Button(
                     onClick = {
-                        Toast.makeText(context, "请在系统编辑控制中心后添加“PinMe”磁贴", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "请在系统编辑控制中心后添加「PinMe」磁贴", Toast.LENGTH_LONG).show()
                     }
                 ) {
                     Text("如何添加磁贴")
@@ -98,12 +174,13 @@ fun ExtractHome() {
         }
 
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (extracts.isEmpty()) {
+            if (extracts.isEmpty() && !isLoading) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -111,12 +188,12 @@ fun ExtractHome() {
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("暂无记录", style = MaterialTheme.typography.titleMedium)
-                            Text("点一下磁贴或点击“截屏识别”开始。", style = MaterialTheme.typography.bodyMedium)
+                            Text("点一下磁贴或点击「截屏识别」开始。", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             } else {
-                items(extracts, key = { it.id }) { item ->
+                items(extracts.toList(), key = { it.id }) { item ->
                     val emoji = marketItems.find { it.title == item.title }?.emoji
                     ExtractCard(
                         item = item,
@@ -128,6 +205,26 @@ fun ExtractHome() {
                             Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
                         }
                     )
+                }
+
+                // 加载更多指示器
+                if (hasMore) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            } else {
+                                TextButton(onClick = { scope.launch { loadMore() } }) {
+                                    Text("加载更多")
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

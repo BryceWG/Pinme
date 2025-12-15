@@ -40,6 +40,23 @@ abstract class PinMeDao {
     @Query("DELETE FROM extract WHERE id = :id")
     abstract suspend fun deleteExtractById(id: Long)
 
+    @Query("SELECT COUNT(*) FROM extract")
+    abstract suspend fun getExtractCount(): Int
+
+    @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit OFFSET :offset")
+    abstract suspend fun getExtractsWithOffset(limit: Int, offset: Int): List<ExtractEntity>
+
+    @Query("DELETE FROM extract WHERE id IN (SELECT id FROM extract ORDER BY createdAtMillis ASC LIMIT :deleteCount)")
+    abstract suspend fun deleteOldestExtracts(deleteCount: Int)
+
+    @Transaction
+    open suspend fun trimExtractsToLimit(maxCount: Int) {
+        val currentCount = getExtractCount()
+        if (currentCount > maxCount) {
+            deleteOldestExtracts(currentCount - maxCount)
+        }
+    }
+
     // Market Item operations
     @Insert
     abstract suspend fun insertMarketItem(item: MarketItemEntity): Long

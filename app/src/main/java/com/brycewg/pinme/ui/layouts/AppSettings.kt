@@ -81,6 +81,7 @@ fun AppSettings() {
     var testResult by remember { mutableStateOf<String?>(null) }
     var showProviderDialog by remember { mutableStateOf(false) }
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
+    var maxHistoryCount by remember { mutableStateOf(Constants.DEFAULT_MAX_HISTORY_COUNT) }
 
     data class LlmPrefsDraft(
         val provider: LlmProvider,
@@ -172,6 +173,12 @@ fun AppSettings() {
         )
         isHydratingProviderPrefs = true
         selectedProvider = provider
+
+        // 加载历史记录数量限制
+        maxHistoryCount = dao.getPreference(Constants.PREF_MAX_HISTORY_COUNT)
+            ?.toIntOrNull()
+            ?.coerceIn(1, 20)
+            ?: Constants.DEFAULT_MAX_HISTORY_COUNT
     }
 
     LaunchedEffect(selectedProvider) {
@@ -457,6 +464,33 @@ fun AppSettings() {
         ) {
             Text("添加截图识别快捷方式到桌面")
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("历史记录", style = MaterialTheme.typography.titleMedium)
+
+        Text(
+            text = "最大历史记录数量: $maxHistoryCount",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Slider(
+            value = maxHistoryCount.toFloat(),
+            onValueChange = { newValue ->
+                maxHistoryCount = newValue.toInt()
+                scope.launch {
+                    dao.setPreference(Constants.PREF_MAX_HISTORY_COUNT, newValue.toInt().toString())
+                    dao.trimExtractsToLimit(newValue.toInt())
+                }
+            },
+            valueRange = 1f..20f,
+            steps = 18,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = "超出限制的旧记录会被自动删除",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
 
         Text(
             text = "提示：首次点击磁贴需要授予截屏权限。识别结果会写入历史记录；下一步会同步到 Flyme 实况通知与桌面插件。",
