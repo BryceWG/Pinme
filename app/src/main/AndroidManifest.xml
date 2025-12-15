@@ -39,7 +39,10 @@
             android:name=".capture.CaptureActivity"
             android:exported="false"
             android:theme="@style/Theme.PinMe.Transparent"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:noHistory="true" />
 
         <receiver android:name=".widget.PinMeWidgetReceiver"
             android:exported="true">

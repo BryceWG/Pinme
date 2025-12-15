@@ -8,7 +8,11 @@ import android.service.quicksettings.TileService
 class QuickCaptureTileService : TileService() {
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, CaptureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = Intent(this, CaptureActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
+            addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+        }
         if (Build.VERSION.SDK_INT >= 34) {
             val pendingIntent = PendingIntent.getActivity(
                 this,
@@ -21,6 +25,5 @@ class QuickCaptureTileService : TileService() {
             @Suppress("DEPRECATION")
             startActivityAndCollapse(intent)
         }
-        sendBroadcast(Intent("android.intent.action.CLOSE_SYSTEM_DIALOGS"))
     }
 }
