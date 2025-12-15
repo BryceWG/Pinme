@@ -12,6 +12,10 @@ build/
 # Local configuration
 local.properties
 
+# Keystore files
+*.keystore
+*.jks
+
 # Native build
 .externalNativeBuild/
 .cxx/
