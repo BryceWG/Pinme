@@ -11,6 +11,8 @@ object Constants {
     // 截图压缩配置
     const val SCREENSHOT_MAX_WIDTH = 720                  // 截图最大宽度（按比例缩放）
 
+    // 截图模式配置
+    const val PREF_USE_ACCESSIBILITY_CAPTURE = "use_accessibility_capture"  // 是否使用无障碍截图模式
 
     // LLM 配置
     const val PREF_LLM_PROVIDER = "llm_provider"           // 供应商类型: zhipu / siliconflow / custom

@@ -31,6 +31,7 @@ PinMe is an Android app (Kotlin, Jetpack Compose) that captures screenshots via 
 ## Architecture
 
 ### Core Flow
+
 1. **QuickCaptureTileService** - Quick Settings tile triggers `CaptureActivity`
 2. **CaptureActivity** - Requests MediaProjection permission, captures screen as Bitmap
 3. **ExtractWorkflow** - Sends screenshot to vision LLM, parses JSON response
@@ -39,18 +40,20 @@ PinMe is an Android app (Kotlin, Jetpack Compose) that captures screenshots via 
 
 ### Key Components
 
-| Package | Purpose |
-|---------|---------|
-| `capture/` | Screen capture via MediaProjection API |
-| `extract/` | LLM workflow and JSON parsing |
-| `vllm/` | OpenAI-compatible API client (OkHttp) |
+| Package         | Purpose                                                    |
+| --------------- | ---------------------------------------------------------- |
+| `capture/`      | Screen capture via MediaProjection API                     |
+| `extract/`      | LLM workflow and JSON parsing                              |
+| `vllm/`         | OpenAI-compatible API client (OkHttp)                      |
 | `notification/` | Notification handling with Flyme Live Notification support |
-| `widget/` | Glance AppWidget implementation |
-| `db/` | Room database for preferences and extraction history |
-| `service/` | LiveNotification service for Flyme integration |
+| `widget/`       | Glance AppWidget implementation                            |
+| `db/`           | Room database for preferences and extraction history       |
+| `service/`      | LiveNotification service for Flyme integration             |
 
 ### LLM Configuration
+
 Supports multiple providers configured in `Constants.kt`:
+
 - **智谱 AI (ZHIPU)** - Default, uses `glm-4v-flash`
 - **硅基流动 (SiliconFlow)** - Uses `Qwen/Qwen2.5-VL-72B-Instruct`
 - **Custom** - User-specified OpenAI-compatible endpoint
@@ -58,13 +61,18 @@ Supports multiple providers configured in `Constants.kt`:
 Settings stored in Room database via `PreferenceEntity`.
 
 ### Database Schema
+
 - `PreferenceEntity` - Key-value settings storage
 - `ExtractEntity` - Extraction history (title, content, raw output, timestamp)
 
 ### Flyme-Specific Features
+
 `UnifiedNotificationManager.isLiveCapsuleCustomizationAvailable()` checks:
+
 - Meizu device manufacturer
 - Flyme version >= 11
 - Live notification permission granted
 
 Uses custom notification extras for capsule styling (background color, icon, content color).
+
+任何你认为应该调用 SubAgent:Explore 的情况,都应该调用 MCP 工具:auggie-mcp，这是一种效率更高的代码检索工具。

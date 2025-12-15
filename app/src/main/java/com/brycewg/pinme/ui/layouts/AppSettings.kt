@@ -9,6 +9,7 @@ import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.brycewg.pinme.R
+import com.brycewg.pinme.capture.AccessibilityCaptureService
 import com.brycewg.pinme.capture.CaptureActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -82,6 +84,11 @@ fun AppSettings() {
     var showProviderDialog by remember { mutableStateOf(false) }
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
     var maxHistoryCount by remember { mutableStateOf(Constants.DEFAULT_MAX_HISTORY_COUNT) }
+
+    // 无障碍截图模式相关状态
+    var useAccessibilityCapture by remember { mutableStateOf(false) }
+    var accessibilityServiceEnabled by remember { mutableStateOf(false) }
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
 
     data class LlmPrefsDraft(
         val provider: LlmProvider,
@@ -179,6 +186,10 @@ fun AppSettings() {
             ?.toIntOrNull()
             ?.coerceIn(1, 20)
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
+
+        // 加载无障碍截图模式设置
+        useAccessibilityCapture = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
+        accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
     }
 
     LaunchedEffect(selectedProvider) {
@@ -432,6 +443,99 @@ fun AppSettings() {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("发送测试实况通知")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("截图模式", style = MaterialTheme.typography.titleMedium)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("无障碍截图模式", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "开启后静默截图，无需每次授权",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = useAccessibilityCapture,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        // 检查无障碍服务是否已开启
+                        accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+                        if (!accessibilityServiceEnabled) {
+                            // 提示用户去开启无障碍权限
+                            showAccessibilityDialog = true
+                        } else {
+                            useAccessibilityCapture = true
+                            scope.launch {
+                                dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "true")
+                            }
+                        }
+                    } else {
+                        useAccessibilityCapture = false
+                        scope.launch {
+                            dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
+                        }
+                    }
+                }
+            )
+        }
+
+        // 无障碍服务状态提示
+        if (useAccessibilityCapture) {
+            // 重新检查服务状态
+            val currentServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+            if (!currentServiceEnabled) {
+                Text(
+                    text = "无障碍服务未开启，将自动使用传统截图方式",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                OutlinedButton(
+                    onClick = { AccessibilityCaptureService.openAccessibilitySettings(context) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("前往无障碍设置")
+                }
+            } else {
+                Text(
+                    text = "无障碍服务已开启，可静默截图",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        // 无障碍权限引导对话框
+        if (showAccessibilityDialog) {
+            AlertDialog(
+                onDismissRequest = { showAccessibilityDialog = false },
+                title = { Text("需要无障碍权限") },
+                text = {
+                    Text("无障碍截图模式需要开启无障碍服务。请在设置中找到 PinMe 并开启无障碍权限。")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showAccessibilityDialog = false
+                            AccessibilityCaptureService.openAccessibilitySettings(context)
+                        }
+                    ) {
+                        Text("前往设置")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showAccessibilityDialog = false }) {
+                        Text("取消")
+                    }
+                }
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

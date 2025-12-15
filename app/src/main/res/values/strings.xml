@@ -4,4 +4,11 @@
     <string name="location">内容</string>
     <string name="location_example">取餐码 123456</string>
     <string name="class_example">识别结果</string>
+
+    <!-- 无障碍截图服务 -->
+    <string name="accessibility_service_description">PinMe 使用此无障碍服务来静默截取屏幕内容，无需每次授权。开启后可通过快捷设置磁贴一键截图识别。</string>
+    <string name="accessibility_capture_mode">无障碍截图模式</string>
+    <string name="accessibility_capture_mode_desc">开启后使用无障碍服务进行截图，无需每次授权</string>
+    <string name="accessibility_not_enabled">无障碍服务未开启</string>
+    <string name="go_to_accessibility_settings">前往设置</string>
 </resources>
