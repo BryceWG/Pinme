@@ -75,7 +75,6 @@ fun AppSettings() {
     var model by remember { mutableStateOf("") }
     var temperature by remember { mutableFloatStateOf(0.1f) }
     var customBaseUrl by remember { mutableStateOf("") }
-    var systemPrompt by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var showProviderDialog by remember { mutableStateOf(false) }
@@ -86,8 +85,7 @@ fun AppSettings() {
         val apiKey: String,
         val model: String,
         val temperature: Float,
-        val customBaseUrl: String,
-        val systemPrompt: String
+        val customBaseUrl: String
     )
 
     var lastSavedDraft by remember { mutableStateOf<LlmPrefsDraft?>(null) }
@@ -124,8 +122,7 @@ fun AppSettings() {
                 Constants.PREF_LLM_API_KEY,
                 Constants.PREF_LLM_MODEL,
                 Constants.PREF_LLM_TEMPERATURE,
-                Constants.PREF_LLM_CUSTOM_BASE_URL,
-                Constants.PREF_LLM_SYSTEM_PROMPT
+                Constants.PREF_LLM_CUSTOM_BASE_URL
             )
         )
         isHydratingProviderPrefs = true
@@ -142,15 +139,12 @@ fun AppSettings() {
             ?: 0.1f
         customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, selectedProvider)
             ?: ""
-        systemPrompt = dao.getLlmScopedPreference(Constants.PREF_LLM_SYSTEM_PROMPT, selectedProvider)
-            ?: ""
         lastSavedDraft = LlmPrefsDraft(
             provider = selectedProvider,
             apiKey = apiKey,
             model = model,
             temperature = temperature,
-            customBaseUrl = customBaseUrl,
-            systemPrompt = systemPrompt
+            customBaseUrl = customBaseUrl
         )
         isHydratingProviderPrefs = false
     }
@@ -162,8 +156,7 @@ fun AppSettings() {
                 apiKey = apiKey,
                 model = model,
                 temperature = temperature,
-                customBaseUrl = customBaseUrl,
-                systemPrompt = systemPrompt
+                customBaseUrl = customBaseUrl
             )
         }
             .filter { (hydrating, _) -> !hydrating }
@@ -188,11 +181,6 @@ fun AppSettings() {
                     Constants.PREF_LLM_CUSTOM_BASE_URL,
                     draft.provider,
                     draft.customBaseUrl.trim()
-                )
-                latestDao.setLlmScopedPreference(
-                    Constants.PREF_LLM_SYSTEM_PROMPT,
-                    draft.provider,
-                    draft.systemPrompt
                 )
                 lastSavedDraft = draft
             }
@@ -317,16 +305,6 @@ fun AppSettings() {
             text = "较低温度输出更确定，较高温度输出更多样",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        OutlinedTextField(
-            value = systemPrompt,
-            onValueChange = { systemPrompt = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("System Prompt (可选)") },
-            supportingText = { Text("留空使用默认提示词") },
-            shape = textFieldShape,
-            minLines = 4
         )
 
         Spacer(modifier = Modifier.height(4.dp))

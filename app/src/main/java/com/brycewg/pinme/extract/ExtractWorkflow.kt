@@ -49,13 +49,7 @@ class ExtractWorkflow(
             ?: 0.1
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
-
-        val systemPrompt = dao.getLlmScopedPreferenceWithLegacyFallback(
-            Constants.PREF_LLM_SYSTEM_PROMPT,
-            provider
-        )
-            ?.takeIf { it.isNotBlank() }
-            ?: buildSystemPrompt(marketItems)
+        val systemPrompt = buildSystemPrompt(marketItems)
 
         val imageBase64 = bitmap.toPngBase64()
         val userPrompt = buildUserPrompt(marketItems)
