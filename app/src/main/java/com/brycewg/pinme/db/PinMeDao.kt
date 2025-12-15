@@ -61,5 +61,14 @@ abstract class PinMeDao {
 
     @Query("DELETE FROM market_item WHERE id = :id")
     abstract suspend fun deleteMarketItemById(id: Long)
+
+    @Query("SELECT * FROM market_item WHERE presetKey = :presetKey LIMIT 1")
+    abstract suspend fun getMarketItemByPresetKey(presetKey: String): MarketItemEntity?
+
+    @Query("SELECT * FROM market_item WHERE isPreset = 1 ORDER BY createdAtMillis ASC")
+    abstract fun getPresetMarketItemsFlow(): Flow<List<MarketItemEntity>>
+
+    @Query("SELECT * FROM market_item WHERE isPreset = 0 ORDER BY createdAtMillis DESC")
+    abstract fun getCustomMarketItemsFlow(): Flow<List<MarketItemEntity>>
 }
 

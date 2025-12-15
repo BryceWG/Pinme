@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -32,6 +32,14 @@ abstract class AppDatabase : RoomDatabase() {
                         `createdAtMillis` INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 添加 isPreset 和 presetKey 字段
+                db.execSQL("ALTER TABLE `market_item` ADD COLUMN `isPreset` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `market_item` ADD COLUMN `presetKey` TEXT DEFAULT NULL")
             }
         }
     }

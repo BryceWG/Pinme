@@ -77,7 +77,8 @@ fun MarketScreen() {
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
 
-    val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
+    val presetItems by dao.getPresetMarketItemsFlow().collectAsState(initial = emptyList())
+    val customItems by dao.getCustomMarketItemsFlow().collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<MarketItemEntity?>(null) }
 
@@ -90,7 +91,7 @@ fun MarketScreen() {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "在此添加自定义识别类型，定制提取内容与通知样式。",
+                text = "管理识别类型，定制提取内容与通知样式。",
                 style = MaterialTheme.typography.bodyMedium
             )
 
@@ -100,7 +101,7 @@ fun MarketScreen() {
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("添加识别类型")
+                Text("添加自定义类型")
             }
         }
 
@@ -111,7 +112,41 @@ fun MarketScreen() {
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (marketItems.isEmpty()) {
+            // 预置类型区域
+            if (presetItems.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "预置类型",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+                items(presetItems, key = { it.id }) { item ->
+                    MarketItemCard(
+                        item = item,
+                        onEdit = { editingItem = item },
+                        onDelete = null, // 预置类型不能删除
+                        onToggleEnabled = { enabled ->
+                            scope.launch {
+                                dao.updateMarketItem(item.copy(isEnabled = enabled))
+                            }
+                        }
+                    )
+                }
+            }
+
+            // 自定义类型区域
+            item {
+                Text(
+                    text = "自定义类型",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                )
+            }
+
+            if (customItems.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -122,14 +157,14 @@ fun MarketScreen() {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("暂无自定义类型", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "点击上方按钮添加，例如取件码、车票等。",
+                                "点击上方按钮添加自定义识别类型。",
                                 style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
                 }
             } else {
-                items(marketItems, key = { it.id }) { item ->
+                items(customItems, key = { it.id }) { item ->
                     MarketItemCard(
                         item = item,
                         onEdit = { editingItem = item },
@@ -188,7 +223,7 @@ fun MarketScreen() {
 private fun MarketItemCard(
     item: MarketItemEntity,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onDelete: (() -> Unit)?,  // 为 null 时不显示删除按钮（预置类型）
     onToggleEnabled: (Boolean) -> Unit
 ) {
     val bgColor = try {
@@ -216,10 +251,26 @@ private fun MarketItemCard(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.title,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        if (item.isPreset) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "预置",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier
+                                    .background(
+                                        MaterialTheme.colorScheme.secondaryContainer,
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                     Text(
                         text = item.contentDesc,
                         style = MaterialTheme.typography.bodySmall,
@@ -231,12 +282,14 @@ private fun MarketItemCard(
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Rounded.Edit, contentDescription = "编辑")
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        Icons.Rounded.Delete,
-                        contentDescription = "删除",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = "删除",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
 

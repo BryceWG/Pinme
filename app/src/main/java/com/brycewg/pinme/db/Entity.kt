@@ -28,6 +28,8 @@ data class MarketItemEntity(
     val capsuleColor: String,    // 胶囊颜色，如"#FFC107"
     val durationMinutes: Int,    // 显示时长（分钟）
     val isEnabled: Boolean = true,
+    val isPreset: Boolean = false,  // 是否为预置类型（预置类型不可删除）
+    val presetKey: String? = null,  // 预置类型的唯一标识，用于避免重复插入
     val createdAtMillis: Long = System.currentTimeMillis()
 )
 

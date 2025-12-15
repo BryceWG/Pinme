@@ -91,30 +91,37 @@ class ExtractWorkflow(
     }
 
     private fun buildUserPrompt(marketItems: List<MarketItemEntity>): String {
-        return if (marketItems.isNotEmpty()) {
-            "从截图中提取最重要的、适合固定展示的关键信息。优先匹配用户定义的类型。"
-        } else {
-            "从截图中提取最重要的、适合固定展示的关键信息。"
-        }
+        return "从截图中提取最重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配。"
     }
 
     private fun buildSystemPrompt(marketItems: List<MarketItemEntity>): String {
-        val customTypesSection = if (marketItems.isNotEmpty()) {
-            val typesList = marketItems.joinToString("\n") { item ->
-                "- ${item.title}：提取${item.contentDesc}"
+        // 分离无匹配类型和其他类型
+        val normalTypes = marketItems.filter { it.presetKey != "no_match" }
+        val noMatchType = marketItems.find { it.presetKey == "no_match" }
+
+        val typesSection = if (normalTypes.isNotEmpty()) {
+            val typesList = normalTypes.joinToString("\n") { item ->
+                "- **${item.title}**：${item.contentDesc}"
             }
             """
 
-## 用户自定义类型（优先匹配）
+## 可识别的类型
 $typesList
 """
         } else {
             ""
         }
 
-        val customExamplesSection = if (marketItems.isNotEmpty()) {
-            val examples = marketItems.take(3).joinToString("\n") { item ->
-                """{"title":"${item.title}","content":"示例${item.contentDesc}"}"""
+        val examplesSection = if (normalTypes.isNotEmpty()) {
+            val examples = normalTypes.take(4).joinToString("\n") { item ->
+                val sampleContent = when (item.presetKey) {
+                    "pickup_code" -> "5-8-2-1"
+                    "meal_code" -> "A128"
+                    "train_ticket" -> "G1234 07车 12F 检票口B2"
+                    "verification_code" -> "847291"
+                    else -> "示例${item.contentDesc}"
+                }
+                """{"title":"${item.title}","content":"$sampleContent"}"""
             }
             """
 $examples"""
@@ -122,31 +129,43 @@ $examples"""
             ""
         }
 
+        // 无匹配类型的处理说明
+        val noMatchSection = if (noMatchType != null) {
+            """
+
+## 无匹配情况
+当截图内容不属于上述任何类型时，使用「${noMatchType.title}」类型：
+- 提取截图中最关键、最有价值的信息摘要
+- content 应简明扼要，突出重点（如页面标题、核心数字、关键状态）
+- 若截图为纯装饰性内容或无实质信息，content 填写"无有效信息"
+
+示例：
+{"title":"${noMatchType.title}","content":"微信支付成功 ¥128.00"}
+{"title":"${noMatchType.title}","content":"航班CA1234 准点"}
+{"title":"${noMatchType.title}","content":"无有效信息"}"""
+        } else {
+            """
+
+## 无匹配情况
+若截图无明确关键信息，返回：
+{"title":"识别结果","content":"截图主要内容概述"}"""
+        }
+
         return """
 你是手机截图信息提取助手。从截图中识别用户最可能需要反复查看或复制的关键信息。
-$customTypesSection
-## 常见场景
-- 取餐码/排队号：提取号码
-- 验证码/动态密码：提取数字或字母组合
-- 火车票/机票：提取车次+座位 或 航班+登机口
-- 快递/外卖：提取取件码
-- 付款码/收款码：提取金额
-- 会议/预约：提取时间+地点
-- Wi-Fi：提取密码
-
+$typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
 {"title":"类型简称","content":"关键信息"}
 
-示例：$customExamplesSection
-{"title":"取餐码","content":"A128"}
-{"title":"座位","content":"G1234 07车 12F"}
-{"title":"验证码","content":"847291"}
+示例：$examplesSection
 
 ## 规则
-1. title 控制在 2-5 字，优先使用用户自定义类型的标题
-2. content 只保留最核心的可复制内容
-3. 若截图无明确关键信息，返回 {"title":"识别结果","content":"截图主要内容概述"}
+1. **title 必须严格使用已定义类型的标题**，不要自创标题
+2. content 只保留最核心的可复制内容，去除无关修饰
+3. 优先匹配最具体的类型（如"取件码"优于"无匹配"）
+4. 验证码类识别需精确，数字/字母不可遗漏或错误
+$noMatchSection
         """.trimIndent()
     }
 }
