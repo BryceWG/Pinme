@@ -1,0 +1,31 @@
+*.iml
+.DS_Store
+
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ
+.idea/
+.kotlin/
+
+# Local configuration
+local.properties
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Captures
+captures/
+
+# Module outputs
+app/build/
+app/release/
+
+# Tests (currently excluded)
+app/src/androidTest/
+app/src/test/
+
+# Agent/local tooling
+.claude/

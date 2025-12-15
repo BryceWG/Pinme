@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<liveNotification>
+    <title>PinMe</title>
+    <description>截屏识别</description>
+    <icon>@mipmap/ic_launcher</icon>
+    <isService>false</isService>
+</liveNotification>

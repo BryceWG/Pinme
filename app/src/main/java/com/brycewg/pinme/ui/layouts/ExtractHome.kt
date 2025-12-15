@@ -1,0 +1,251 @@
+package com.brycewg.pinme.ui.layouts
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.text.format.DateFormat
+import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.anchoredDraggable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.getSystemService
+import com.brycewg.pinme.capture.CaptureActivity
+import com.brycewg.pinme.db.DatabaseProvider
+import com.brycewg.pinme.db.ExtractEntity
+import com.brycewg.pinme.db.MarketItemEntity
+import com.brycewg.pinme.notification.UnifiedNotificationManager
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+
+@Composable
+fun ExtractHome() {
+    val context = LocalContext.current
+    val dao = DatabaseProvider.dao()
+    val scope = rememberCoroutineScope()
+
+    val extractsFlow: Flow<List<ExtractEntity>> = dao.getLatestExtractsFlow(20)
+    val extracts by extractsFlow.collectAsState(initial = emptyList())
+
+    val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "点击控制中心磁贴截屏识别；也可以在这里手动触发一次。",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = {
+                    context.startActivity(Intent(context, CaptureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }) {
+                    Text("截屏识别")
+                }
+
+                Button(
+                    onClick = {
+                        Toast.makeText(context, "请在系统编辑控制中心后添加“PinMe”磁贴", Toast.LENGTH_LONG).show()
+                    }
+                ) {
+                    Text("如何添加磁贴")
+                }
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (extracts.isEmpty()) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("暂无记录", style = MaterialTheme.typography.titleMedium)
+                            Text("点一下磁贴或点击“截屏识别”开始。", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            } else {
+                items(extracts, key = { it.id }) { item ->
+                    val emoji = marketItems.find { it.title == item.title }?.emoji
+                    ExtractCard(
+                        item = item,
+                        emoji = emoji,
+                        onDelete = {
+                            scope.launch {
+                                dao.deleteExtractById(item.id)
+                            }
+                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private enum class ExtractCardSwipeState {
+    Closed,
+    Open
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun ExtractCard(item: ExtractEntity, emoji: String?, onDelete: () -> Unit) {
+    val context = LocalContext.current
+    val time = DateFormat.format("MM-dd HH:mm", item.createdAtMillis).toString()
+    val pinTimeText = DateFormat.format("HH:mm", item.createdAtMillis).toString()
+    val shape = MaterialTheme.shapes.medium
+    val density = LocalDensity.current
+    val revealWidthPx = with(density) { 72.dp.toPx() }
+
+    val swipeState = remember(revealWidthPx) {
+        androidx.compose.foundation.gestures.AnchoredDraggableState(
+            initialValue = ExtractCardSwipeState.Closed,
+            anchors = DraggableAnchors {
+                ExtractCardSwipeState.Closed at 0f
+                ExtractCardSwipeState.Open at revealWidthPx
+            },
+            positionalThreshold = { distance: Float -> distance * 0.5f },
+            velocityThreshold = { with(density) { 120.dp.toPx() } },
+            snapAnimationSpec = androidx.compose.animation.core.spring(),
+            decayAnimationSpec = androidx.compose.animation.core.exponentialDecay()
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clip(shape)
+                .background(MaterialTheme.colorScheme.errorContainer)
+                .padding(start = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "删除",
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(swipeState.offset.roundToInt(), 0) }
+                .anchoredDraggable(state = swipeState, orientation = Orientation.Horizontal),
+            shape = shape,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 左侧 emoji 图标
+                if (emoji != null) {
+                    Text(
+                        text = emoji,
+                        fontSize = 32.sp,
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                }
+
+                // 右侧内容区域
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.title, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                time,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(onClick = {
+                            val notificationManager = UnifiedNotificationManager(context)
+                            val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
+                            notificationManager.showExtractNotification(item.title, item.content, pinTimeText, emoji = emoji)
+                            val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
+                            Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Rounded.PushPin,
+                                contentDescription = "Pin到通知"
+                            )
+                        }
+                        IconButton(onClick = { copyToClipboard(context, item.content) }) {
+                            Icon(
+                                imageVector = Icons.Rounded.ContentCopy,
+                                contentDescription = "复制"
+                            )
+                        }
+                    }
+
+                    Text(item.content, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val clipboard = context.getSystemService<ClipboardManager>() ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText("PinMe", text))
+    Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
+}
