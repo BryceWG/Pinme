@@ -33,6 +33,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,6 +59,7 @@ import com.brycewg.pinme.vllm.migrateLegacyLlmPreferencesToScoped
 import com.brycewg.pinme.vllm.setLlmScopedPreference
 import com.brycewg.pinme.vllm.toStoredValue
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -89,6 +91,49 @@ fun AppSettings() {
     )
 
     var lastSavedDraft by remember { mutableStateOf<LlmPrefsDraft?>(null) }
+
+    // 立即保存当前配置的函数（用于退出时和测试前）
+    val saveCurrentPrefsImmediately: suspend () -> Unit = {
+        if (!isHydratingProviderPrefs) {
+            val draft = LlmPrefsDraft(
+                provider = selectedProvider,
+                apiKey = apiKey,
+                model = model,
+                temperature = temperature,
+                customBaseUrl = customBaseUrl
+            )
+            if (draft != lastSavedDraft) {
+                dao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, draft.provider, draft.apiKey)
+                dao.setLlmScopedPreference(
+                    Constants.PREF_LLM_MODEL,
+                    draft.provider,
+                    draft.model.trim().ifBlank { draft.provider.defaultModel }
+                )
+                dao.setLlmScopedPreference(
+                    Constants.PREF_LLM_TEMPERATURE,
+                    draft.provider,
+                    draft.temperature.toString()
+                )
+                dao.setLlmScopedPreference(
+                    Constants.PREF_LLM_CUSTOM_BASE_URL,
+                    draft.provider,
+                    draft.customBaseUrl.trim()
+                )
+                lastSavedDraft = draft
+            }
+        }
+    }
+
+    // 在离开页面时强制保存配置
+    DisposableEffect(Unit) {
+        onDispose {
+            if (!isHydratingProviderPrefs) {
+                runBlocking {
+                    saveCurrentPrefsImmediately()
+                }
+            }
+        }
+    }
 
     val latestContext by rememberUpdatedState(context)
     val latestDao by rememberUpdatedState(dao)
@@ -315,6 +360,9 @@ fun AppSettings() {
                     isTesting = true
                     testResult = null
                     try {
+                        // 测试前先保存当前配置
+                        saveCurrentPrefsImmediately()
+
                         val baseUrl = when (selectedProvider) {
                             LlmProvider.CUSTOM -> customBaseUrl.trim().takeIf { it.isNotBlank() }
                                 ?: throw IllegalStateException("请填写 Base URL")
