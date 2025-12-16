@@ -9,7 +9,7 @@ object Constants {
     const val DEFAULT_MAX_HISTORY_COUNT = 20                // 默认最大历史记录数量
 
     // 截图压缩配置
-    const val SCREENSHOT_MAX_WIDTH = 720                  // 截图最大宽度（按比例缩放）
+    const val SCREENSHOT_MAX_WIDTH = 1080                 // 截图最大宽度（按比例缩放）
 
     // 截图模式配置
     const val PREF_USE_ACCESSIBILITY_CAPTURE = "use_accessibility_capture"  // 是否使用无障碍截图模式

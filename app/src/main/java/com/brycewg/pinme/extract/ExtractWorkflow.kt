@@ -86,14 +86,14 @@ class ExtractWorkflow(
     }
 
     /**
-     * 将 Bitmap 压缩为 PNG 格式的 Base64 字符串
+     * 将 Bitmap 压缩为 JPEG 格式的 Base64 字符串
      * - 按比例缩放到最大宽度以减少传输数据量
-     * - 使用 PNG 格式确保 VLM 兼容性
+     * - 使用 JPEG 有损压缩大幅减小文件体积（相比 PNG 可减少 80-90%）
      */
     private fun Bitmap.toCompressedBase64(): String {
         val scaledBitmap = scaleToMaxWidth(Constants.SCREENSHOT_MAX_WIDTH)
         val stream = ByteArrayOutputStream()
-        scaledBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
         if (scaledBitmap !== this) {
             scaledBitmap.recycle()
         }
