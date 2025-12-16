@@ -107,6 +107,17 @@ object PresetMarketTypes {
         presetKey = "verification_code"
     )
 
+    val QR_CODE = MarketItemEntity(
+        title = "二维码",
+        contentDesc = "截图中的二维码类型（如票券二维码、支付二维码等）",
+        emoji = "📱",
+        capsuleColor = "#9C27B0",
+        durationMinutes = 10,
+        isEnabled = true,
+        isPreset = true,
+        presetKey = "qr_code"
+    )
+
     val NO_MATCH = MarketItemEntity(
         title = "无匹配",
         contentDesc = "屏幕内容摘要（无特定类型匹配时）",
@@ -123,6 +134,7 @@ object PresetMarketTypes {
         MEAL_CODE,
         TRAIN_TICKET,
         VERIFICATION_CODE,
+        QR_CODE,
         NO_MATCH
     )
 }

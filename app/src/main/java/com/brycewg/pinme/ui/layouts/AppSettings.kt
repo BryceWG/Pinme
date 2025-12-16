@@ -167,6 +167,9 @@ fun AppSettings() {
             }
         }
 
+    // 标记是否已完成首次初始化
+    var hasInitialized by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         val provider = LlmProvider.fromStoredValue(dao.getPreference(Constants.PREF_LLM_PROVIDER))
         dao.migrateLegacyLlmPreferencesToScoped(
@@ -178,8 +181,27 @@ fun AppSettings() {
                 Constants.PREF_LLM_CUSTOM_BASE_URL
             )
         )
-        isHydratingProviderPrefs = true
         selectedProvider = provider
+
+        // 首次加载：直接在这里加载配置
+        isHydratingProviderPrefs = true
+        apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, provider) ?: ""
+        model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, provider)
+            ?: provider.defaultModel
+        temperature = dao.getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, provider)
+            ?.toFloatOrNull()
+            ?: 0.1f
+        customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, provider)
+            ?: ""
+        lastSavedDraft = LlmPrefsDraft(
+            provider = provider,
+            apiKey = apiKey,
+            model = model,
+            temperature = temperature,
+            customBaseUrl = customBaseUrl
+        )
+        isHydratingProviderPrefs = false
+        hasInitialized = true
 
         // 加载历史记录数量限制
         maxHistoryCount = dao.getPreference(Constants.PREF_MAX_HISTORY_COUNT)
@@ -192,7 +214,9 @@ fun AppSettings() {
         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
     }
 
-    LaunchedEffect(selectedProvider) {
+    LaunchedEffect(selectedProvider, hasInitialized) {
+        // 只在初始化完成后且 provider 切换时才执行
+        if (!hasInitialized) return@LaunchedEffect
         isHydratingProviderPrefs = true
         apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, selectedProvider) ?: ""
         model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, selectedProvider)

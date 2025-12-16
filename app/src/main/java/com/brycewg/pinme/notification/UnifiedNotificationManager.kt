@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
@@ -53,13 +54,15 @@ class UnifiedNotificationManager(private val context: Context) {
     /**
      * @param capsuleColor 胶囊颜色，如 "#FFC107"。传 null 使用默认橙色
      * @param emoji 实况通知卡片右侧显示的 emoji，如 "📦"。传 null 使用默认星星
+     * @param qrBitmap 二维码图片，如果检测到二维码则传入，替代 emoji 显示
      */
     fun showExtractNotification(
         title: String,
         content: String,
         timeText: String = "",
         capsuleColor: String? = null,
-        emoji: String? = null
+        emoji: String? = null,
+        qrBitmap: Bitmap? = null
     ) {
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
@@ -67,13 +70,15 @@ class UnifiedNotificationManager(private val context: Context) {
                 content = content,
                 timeText = timeText,
                 customCapsuleColor = capsuleColor,
-                emoji = emoji
+                emoji = emoji,
+                qrBitmap = qrBitmap
             )
         } else {
             showNormalNotification(
                 title = title,
                 content = content,
-                timeText = timeText
+                timeText = timeText,
+                qrBitmap = qrBitmap
             )
         }
     }
@@ -138,7 +143,8 @@ class UnifiedNotificationManager(private val context: Context) {
         content: String,
         timeText: String,
         customCapsuleColor: String? = null,
-        emoji: String? = null
+        emoji: String? = null,
+        qrBitmap: Bitmap? = null
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -183,11 +189,21 @@ class UnifiedNotificationManager(private val context: Context) {
             putInt("notification.live.contentColor", contentColor.toArgb())
         }
 
-        val remoteViews = RemoteViews(context.packageName, R.layout.live_notification_card).apply {
-            setTextViewText(R.id.live_title, title)
-            setTextViewText(R.id.location, content)
-            setTextViewText(R.id.live_time, timeText)
-            setTextViewText(R.id.live_icon, emoji ?: "❌")
+        // 根据是否有二维码选择不同的布局
+        val remoteViews = if (qrBitmap != null) {
+            RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
+                setTextViewText(R.id.live_title, title)
+                setTextViewText(R.id.location, content)
+                setTextViewText(R.id.live_time, timeText)
+                setImageViewBitmap(R.id.qr_code_image, qrBitmap)
+            }
+        } else {
+            RemoteViews(context.packageName, R.layout.live_notification_card).apply {
+                setTextViewText(R.id.live_title, title)
+                setTextViewText(R.id.location, content)
+                setTextViewText(R.id.live_time, timeText)
+                setTextViewText(R.id.live_icon, emoji ?: "❌")
+            }
         }
 
         val notification = Notification.Builder(context, LIVE_CHANNEL_ID)
@@ -203,7 +219,12 @@ class UnifiedNotificationManager(private val context: Context) {
         notificationManager.notify(EXTRACT_NOTIFICATION_ID, notification)
     }
 
-    private fun showNormalNotification(title: String, content: String, timeText: String) {
+    private fun showNormalNotification(
+        title: String,
+        content: String,
+        timeText: String,
+        qrBitmap: Bitmap? = null
+    ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
@@ -215,19 +236,31 @@ class UnifiedNotificationManager(private val context: Context) {
         )
 
         val header = if (timeText.isBlank()) title else "$title · $timeText"
-        val notification = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
+        val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(header)
             .setContentText(content)
-            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(content))
             .setContentIntent(pendingIntent)
             .setAutoCancel(false)
             .setOngoing(true)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
             .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-            .build()
 
-        notificationManager.notify(EXTRACT_NOTIFICATION_ID, notification)
+        // 有二维码时使用 BigPictureStyle，否则使用 BigTextStyle
+        if (qrBitmap != null) {
+            builder.setStyle(
+                androidx.core.app.NotificationCompat.BigPictureStyle()
+                    .bigPicture(qrBitmap)
+                    .setBigContentTitle(header)
+                    .setSummaryText(content)
+            )
+        } else {
+            builder.setStyle(
+                androidx.core.app.NotificationCompat.BigTextStyle().bigText(content)
+            )
+        }
+
+        notificationManager.notify(EXTRACT_NOTIFICATION_ID, builder.build())
     }
 }
 

@@ -26,10 +26,13 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.widget.PinMeWidget
+import com.brycewg.pinme.qrcode.QrCodeDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -125,7 +128,13 @@ class ScreenCaptureService : Service() {
             showToast("截图成功，正在处理")
 
             try {
-                val extract = ExtractWorkflow(this).processScreenshot(bitmap)
+                // 并行执行二维码检测和 LLM 识别
+                val (qrResult, extract) = coroutineScope {
+                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                    val extractDeferred = async { ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap) }
+                    qrDeferred.await() to extractDeferred.await()
+                }
+
                 val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
 
                 // 根据提取结果的 title 匹配市场类型（获取颜色和时长）
@@ -134,7 +143,14 @@ class ScreenCaptureService : Service() {
                 val durationMinutes = matchedItem?.durationMinutes
 
                 UnifiedNotificationManager(this)
-                    .showExtractNotification(extract.title, extract.content, timeText, capsuleColor, matchedItem?.emoji)
+                    .showExtractNotification(
+                        title = extract.title,
+                        content = extract.content,
+                        timeText = timeText,
+                        capsuleColor = capsuleColor,
+                        emoji = matchedItem?.emoji,
+                        qrBitmap = qrResult?.croppedBitmap
+                    )
 
                 // 设置定时取消通知
                 if (durationMinutes != null && durationMinutes > 0) {
@@ -142,7 +158,9 @@ class ScreenCaptureService : Service() {
                 }
 
                 PinMeWidget.updateWidgetContent(this)
-                showToast("${extract.title}: ${extract.content}")
+
+                val qrInfo = if (qrResult != null) " [含二维码]" else ""
+                showToast("${extract.title}: ${extract.content}$qrInfo")
             } catch (e: Exception) {
                 Log.e(TAG, "processScreenshot failed", e)
                 showToast("模型处理失败")

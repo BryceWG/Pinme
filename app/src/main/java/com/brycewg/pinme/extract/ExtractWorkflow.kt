@@ -140,6 +140,7 @@ $typesList
                     "meal_code" -> "A128"
                     "train_ticket" -> "G1234 07车 12F 检票口B2"
                     "verification_code" -> "847291"
+                    "qr_code" -> "票券二维码"
                     else -> "示例${item.contentDesc}"
                 }
                 """{"title":"${item.title}","content":"$sampleContent"}"""
