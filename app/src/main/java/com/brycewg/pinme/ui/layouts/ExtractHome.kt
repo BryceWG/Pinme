@@ -173,8 +173,8 @@ fun ExtractHome() {
                         emoji = emoji,
                         capsuleColor = matchedMarketItem?.capsuleColor,
                         onDelete = {
-                            // 仅当删除的记录正在显示为通知时才取消
-                            UnifiedNotificationManager(context).cancelExtractNotificationIfMatches(item.id)
+                            // 如果删除的记录正在显示为通知则取消
+                            UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
                             scope.launch {
                                 dao.deleteExtractById(item.id)
                             }

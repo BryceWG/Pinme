@@ -169,7 +169,7 @@ class ScreenCaptureService : Service() {
 
                 // 设置定时取消通知
                 if (durationMinutes != null && durationMinutes > 0) {
-                    scheduleNotificationDismiss(durationMinutes)
+                    scheduleNotificationDismiss(durationMinutes, extract.id)
                 }
 
                 PinMeWidget.updateWidgetContent(this)
@@ -297,12 +297,16 @@ class ScreenCaptureService : Service() {
     /**
      * 设置定时取消通知
      */
-    private fun scheduleNotificationDismiss(durationMinutes: Int) {
+    private fun scheduleNotificationDismiss(durationMinutes: Int, extractId: Long) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, NotificationDismissReceiver::class.java)
+        val intent = Intent(this, NotificationDismissReceiver::class.java).apply {
+            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+        }
+        // 使用 extractId 的 hashCode 作为 requestCode，确保每个通知有唯一的定时器
+        val requestCode = extractId.hashCode()
         val pendingIntent = PendingIntent.getBroadcast(
             this,
-            NotificationDismissReceiver.REQUEST_CODE,
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -325,7 +329,7 @@ class ScreenCaptureService : Service() {
                     pendingIntent
                 )
             }
-            Log.d(TAG, "Scheduled notification dismiss in $durationMinutes minutes")
+            Log.d(TAG, "Scheduled notification dismiss for extractId $extractId in $durationMinutes minutes")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to schedule notification dismiss", e)
         }

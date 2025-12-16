@@ -38,7 +38,8 @@ class UnifiedNotificationManager(private val context: Context) {
         private const val NORMAL_CHANNEL_ID = "pinme"
         private const val NORMAL_CHANNEL_NAME = "PinMe"
 
-        const val EXTRACT_NOTIFICATION_ID = 2001
+        /** 通知 ID 基础值，实际 ID = BASE + extractId */
+        private const val NOTIFICATION_ID_BASE = 2000
 
         /** 默认胶囊颜色（橙色） */
         const val DEFAULT_CAPSULE_COLOR = "#FF9800"
@@ -53,13 +54,42 @@ class UnifiedNotificationManager(private val context: Context) {
             return android.graphics.Color.rgb(r, g, b)
         }
 
-        /** 当前显示在通知上的记录 ID，用于判断删除时是否需要取消通知 */
-        @Volatile
-        var currentNotificationExtractId: Long? = null
-            private set
+        /** 活动通知的 extractId 集合，用于跟踪当前显示的通知 */
+        private val activeNotifications = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
 
-        fun setCurrentExtractId(id: Long?) {
-            currentNotificationExtractId = id
+        /**
+         * 添加活动通知
+         */
+        fun addActiveNotification(extractId: Long) {
+            activeNotifications.add(extractId)
+        }
+
+        /**
+         * 移除活动通知
+         */
+        fun removeActiveNotification(extractId: Long) {
+            activeNotifications.remove(extractId)
+        }
+
+        /**
+         * 检查通知是否活动
+         */
+        fun isNotificationActive(extractId: Long): Boolean {
+            return activeNotifications.contains(extractId)
+        }
+
+        /**
+         * 获取所有活动通知的 extractId
+         */
+        fun getActiveNotificationIds(): Set<Long> {
+            return activeNotifications.toSet()
+        }
+
+        /**
+         * 根据 extractId 计算通知 ID
+         */
+        fun getNotificationId(extractId: Long): Int {
+            return NOTIFICATION_ID_BASE + (extractId % Int.MAX_VALUE).toInt()
         }
     }
 
@@ -67,18 +97,31 @@ class UnifiedNotificationManager(private val context: Context) {
         createNotificationChannels()
     }
 
-    fun cancelExtractNotification() {
-        notificationManager.cancel(EXTRACT_NOTIFICATION_ID)
-        setCurrentExtractId(null)
+    /**
+     * 取消指定 extractId 的通知
+     */
+    fun cancelExtractNotification(extractId: Long) {
+        val notificationId = getNotificationId(extractId)
+        notificationManager.cancel(notificationId)
+        removeActiveNotification(extractId)
     }
 
     /**
-     * 仅当传入的 ID 与当前通知对应的记录 ID 匹配时才取消通知
-     * @return true 如果通知被取消，false 如果 ID 不匹配
+     * 取消所有活动的提取通知
      */
-    fun cancelExtractNotificationIfMatches(extractId: Long): Boolean {
-        if (currentNotificationExtractId == extractId) {
-            cancelExtractNotification()
+    fun cancelAllExtractNotifications() {
+        getActiveNotificationIds().forEach { extractId ->
+            cancelExtractNotification(extractId)
+        }
+    }
+
+    /**
+     * 仅当传入的 ID 对应的通知存在时才取消
+     * @return true 如果通知被取消，false 如果通知不存在
+     */
+    fun cancelExtractNotificationIfExists(extractId: Long): Boolean {
+        if (isNotificationActive(extractId)) {
+            cancelExtractNotification(extractId)
             return true
         }
         return false
@@ -88,7 +131,7 @@ class UnifiedNotificationManager(private val context: Context) {
      * @param capsuleColor 胶囊颜色，如 "#FFC107"。传 null 使用默认橙色
      * @param emoji 实况通知卡片右侧显示的 emoji，如 "📦"。传 null 使用默认星星
      * @param qrBitmap 二维码图片，如果检测到二维码则传入，替代 emoji 显示
-     * @param extractId 对应的数据库记录 ID，用于在删除记录时判断是否需要取消通知
+     * @param extractId 对应的数据库记录 ID，用于标识和管理通知
      */
     fun showExtractNotification(
         title: String,
@@ -97,9 +140,10 @@ class UnifiedNotificationManager(private val context: Context) {
         capsuleColor: String? = null,
         emoji: String? = null,
         qrBitmap: Bitmap? = null,
-        extractId: Long? = null
+        extractId: Long
     ) {
-        setCurrentExtractId(extractId)
+        addActiveNotification(extractId)
+        val notificationId = getNotificationId(extractId)
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
                 title = title,
@@ -107,14 +151,18 @@ class UnifiedNotificationManager(private val context: Context) {
                 timeText = timeText,
                 customCapsuleColor = capsuleColor,
                 emoji = emoji,
-                qrBitmap = qrBitmap
+                qrBitmap = qrBitmap,
+                notificationId = notificationId,
+                extractId = extractId
             )
         } else {
             showNormalNotification(
                 title = title,
                 content = content,
                 timeText = timeText,
-                qrBitmap = qrBitmap
+                qrBitmap = qrBitmap,
+                notificationId = notificationId,
+                extractId = extractId
             )
         }
     }
@@ -180,7 +228,9 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String,
         customCapsuleColor: String? = null,
         emoji: String? = null,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        notificationId: Int,
+        extractId: Long
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -225,11 +275,13 @@ class UnifiedNotificationManager(private val context: Context) {
             putInt("notification.live.contentColor", contentColor.toArgb())
         }
 
-        // 关闭按钮的 PendingIntent
-        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java)
+        // 关闭按钮的 PendingIntent（传递 extractId 以便取消特定通知）
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
+            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+        }
         val dismissPendingIntent = PendingIntent.getBroadcast(
             context,
-            NotificationDismissReceiver.REQUEST_CODE,
+            notificationId, // 使用 notificationId 作为 requestCode 确保每个通知有唯一的 PendingIntent
             dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -272,14 +324,16 @@ class UnifiedNotificationManager(private val context: Context) {
             .setAutoCancel(false)
             .build()
 
-        notificationManager.notify(EXTRACT_NOTIFICATION_ID, notification)
+        notificationManager.notify(notificationId, notification)
     }
 
     private fun showNormalNotification(
         title: String,
         content: String,
         timeText: String,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        notificationId: Int,
+        extractId: Long
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -288,6 +342,17 @@ class UnifiedNotificationManager(private val context: Context) {
             context,
             0,
             launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 删除按钮的 PendingIntent
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
+            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -301,6 +366,7 @@ class UnifiedNotificationManager(private val context: Context) {
             .setOngoing(true)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
             .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(0, "关闭", dismissPendingIntent)
 
         // 有二维码时使用 BigPictureStyle，否则使用 BigTextStyle
         if (qrBitmap != null) {
@@ -316,7 +382,7 @@ class UnifiedNotificationManager(private val context: Context) {
             )
         }
 
-        notificationManager.notify(EXTRACT_NOTIFICATION_ID, builder.build())
+        notificationManager.notify(notificationId, builder.build())
     }
 }
 

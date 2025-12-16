@@ -151,10 +151,13 @@ fun AppSettings() {
     val sendTestLiveNotification: () -> Unit = {
         val timeText =
             android.text.format.DateFormat.format("HH:mm", System.currentTimeMillis()).toString()
+        // 使用特殊的测试通知 ID（负数，避免与真实 extractId 冲突）
+        val testExtractId = -System.currentTimeMillis()
         UnifiedNotificationManager(latestContext).showExtractNotification(
             title = "测试实况通知",
             content = "如果你看到了这条通知，说明通知发送正常。",
-            timeText = timeText
+            timeText = timeText,
+            extractId = testExtractId
         )
         Toast.makeText(latestContext, "已发送测试通知", Toast.LENGTH_SHORT).show()
     }
