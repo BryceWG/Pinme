@@ -16,7 +16,7 @@ class ExtractWorkflow(
     private val context: Context,
     private val vllmClient: VllmClient = VllmClient()
 ) {
-    suspend fun processScreenshot(bitmap: Bitmap): ExtractEntity {
+    suspend fun processScreenshot(bitmap: Bitmap): List<ExtractEntity> {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(context)
         }
@@ -47,12 +47,16 @@ class ExtractWorkflow(
         val temperature = dao.getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_TEMPERATURE, provider)
             ?.toDoubleOrNull()
             ?: 0.1
+        
+        // 检查是否启用多信息提取模式
+        val isMultiMode = dao.getPreference(Constants.PREF_MULTI_EXTRACT_MODE) == "true"
+        
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
-        val systemPrompt = buildSystemPrompt(marketItems)
+        val systemPrompt = buildSystemPrompt(marketItems, isMultiMode)
 
         val imageBase64 = bitmap.toCompressedBase64()
-        val userPrompt = buildUserPrompt(marketItems)
+        val userPrompt = buildUserPrompt(marketItems, isMultiMode)
 
         val modelOutput = vllmClient.chatCompletionWithImage(
             baseUrl = baseUrl,
@@ -64,17 +68,24 @@ class ExtractWorkflow(
             temperature = temperature
         )
 
-        val parsed = ExtractParsing.parseModelOutput(modelOutput)
-        val entity = ExtractEntity(
-            title = parsed.title,
-            content = parsed.content,
-            emoji = parsed.emoji,
-            source = "screen",
-            rawModelOutput = modelOutput,
-            createdAtMillis = System.currentTimeMillis()
-        )
+        val parsed = ExtractParsing.parseModelOutput(modelOutput, isMultiMode)
+        val entities = mutableListOf<ExtractEntity>()
+        
+        // 显示模型返回的内容
+        android.widget.Toast.makeText(context, "AI返回内容: $modelOutput", android.widget.Toast.LENGTH_LONG).show()
 
-        val id = dao.insertExtract(entity)
+        for (item in parsed.items) {
+            val entity = ExtractEntity(
+                title = item.title,
+                content = item.content,
+                emoji = item.emoji,
+                source = "screen",
+                rawModelOutput = if (parsed.isMultiMode) "[多信息模式] $modelOutput" else modelOutput,
+                createdAtMillis = System.currentTimeMillis()
+            )
+            val id = dao.insertExtract(entity)
+            entities.add(entity.copy(id = id))
+        }
 
         // 清理超出限制的旧记录
         val maxCount = dao.getPreference(Constants.PREF_MAX_HISTORY_COUNT)
@@ -83,7 +94,7 @@ class ExtractWorkflow(
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
         dao.trimExtractsToLimit(maxCount)
 
-        return entity.copy(id = id)
+        return entities
     }
 
     /**
@@ -112,11 +123,15 @@ class ExtractWorkflow(
         return Bitmap.createScaledBitmap(this, maxWidth, newHeight, true)
     }
 
-    private fun buildUserPrompt(marketItems: List<MarketItemEntity>): String {
-        return "从截图中提取最重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配。"
+    private fun buildUserPrompt(marketItems: List<MarketItemEntity>, isMultiMode: Boolean = false): String {
+        return if (isMultiMode) {
+            "从截图中提取所有重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配，可以返回多个信息项。"
+        } else {
+            "从截图中提取最重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配。"
+        }
     }
 
-    private fun buildSystemPrompt(marketItems: List<MarketItemEntity>): String {
+    private fun buildSystemPrompt(marketItems: List<MarketItemEntity>, isMultiMode: Boolean = false): String {
         // 分离无匹配类型和其他类型
         val normalTypes = marketItems.filter { it.presetKey != "no_match" }
         val noMatchType = marketItems.find { it.presetKey == "no_match" }
@@ -134,12 +149,24 @@ $typesList
             ""
         }
 
-        val examplesSection = """
+        val examplesSection = if (isMultiMode) {
+            """
+[
+  {"title":"验证码","content":"114514","emoji":"🔑"},
+  {"title":"验证码","content":"847291","emoji":"🔑"}
+]
+[
+  {"title":"火车票","content":"G1234 07车 12F","emoji":"🚄"},
+  {"title":"座位号","content":"12F","emoji":"💺"}
+]"""
+        } else {
+            """
 {"title":"取餐码","content":"A128","emoji":"☕"}
 {"title":"取餐码","content":"B032","emoji":"🍔"}
 {"title":"取件码","content":"5-8-2-1","emoji":"📦"}
 {"title":"火车票","content":"G1234 07车 12F","emoji":"🚄"}
 {"title":"验证码","content":"847291","emoji":"🔑"}"""
+        }
 
         // 无匹配类型的处理说明
         val noMatchSection = if (noMatchType != null) {
@@ -168,7 +195,7 @@ $typesList
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
-{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}
+${if (isMultiMode) "[{\"title\":\"类型简称\",\"content\":\"关键信息\",\"emoji\":\"单个emoji\"}, ...]" else "{\"title\":\"类型简称\",\"content\":\"关键信息\",\"emoji\":\"单个emoji\"}"}
 
 示例：$examplesSection
 

@@ -92,6 +92,9 @@ fun AppSettings() {
     var useAccessibilityCapture by remember { mutableStateOf(false) }
     var accessibilityServiceEnabled by remember { mutableStateOf(false) }
     var showAccessibilityDialog by remember { mutableStateOf(false) }
+    
+    // 多信息处理模式相关状态
+    var multiExtractMode by remember { mutableStateOf(false) }
 
     data class LlmPrefsDraft(
         val provider: LlmProvider,
@@ -215,6 +218,9 @@ fun AppSettings() {
         // 加载无障碍截图模式设置
         useAccessibilityCapture = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+        
+        // 加载多信息处理模式设置
+        multiExtractMode = dao.getPreference(Constants.PREF_MULTI_EXTRACT_MODE) == "true"
     }
 
     LaunchedEffect(selectedProvider, hasInitialized) {
@@ -560,6 +566,34 @@ fun AppSettings() {
                 dismissButton = {
                     TextButton(onClick = { showAccessibilityDialog = false }) {
                         Text("取消")
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("BATE", style = MaterialTheme.typography.titleMedium)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("多信息处理模式", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "开启后可识别屏幕内的多个信息（如多个火车列次与座次）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = multiExtractMode,
+                onCheckedChange = { enabled ->
+                    multiExtractMode = enabled
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_MULTI_EXTRACT_MODE, enabled.toString())
                     }
                 }
             )

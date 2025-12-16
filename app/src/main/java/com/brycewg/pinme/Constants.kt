@@ -14,6 +14,10 @@ object Constants {
     // 截图模式配置
     const val PREF_USE_ACCESSIBILITY_CAPTURE = "use_accessibility_capture"  // 是否使用无障碍截图模式
 
+    // 多信息处理配置（BATE测试功能）
+    const val PREF_MULTI_EXTRACT_MODE = "multi_extract_mode"  // 是否启用多信息提取模式
+    const val DEFAULT_MULTI_EXTRACT_MODE = false  // 默认关闭
+
     // LLM 配置
     const val PREF_LLM_PROVIDER = "llm_provider"           // 供应商类型: zhipu / siliconflow / custom
     const val PREF_LLM_API_KEY = "llm_api_key"             // API Key

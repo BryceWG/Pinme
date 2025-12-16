@@ -131,50 +131,53 @@ class ScreenCaptureService : Service() {
 
             try {
                 // 并行执行二维码检测和 LLM 识别
-                val (qrResult, extract) = coroutineScope {
+                val (qrResult, extracts) = coroutineScope {
                     val qrDeferred = async { QrCodeDetector.detect(bitmap) }
                     val extractDeferred = async { ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap) }
                     qrDeferred.await() to extractDeferred.await()
                 }
 
-                // 如果检测到二维码，保存到数据库
-                if (qrResult != null) {
-                    val qrBase64 = qrResult.croppedBitmap.toJpegBase64()
-                    if (!DatabaseProvider.isInitialized()) {
-                        DatabaseProvider.init(this)
+                // 处理多个提取结果
+                for (extract in extracts) {
+                    // 如果检测到二维码，保存到数据库
+                    if (qrResult != null) {
+                        val qrBase64 = qrResult.croppedBitmap.toJpegBase64()
+                        if (!DatabaseProvider.isInitialized()) {
+                            DatabaseProvider.init(this)
+                        }
+                        DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
                     }
-                    DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
-                }
 
-                val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
+                    val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
 
-                // 根据提取结果的 title 匹配市场类型（获取颜色和时长）
-                val matchedItem = findMatchedMarketItem(extract.title)
-                val capsuleColor = matchedItem?.capsuleColor
-                val durationMinutes = matchedItem?.durationMinutes
+                    // 根据提取结果的 title 匹配市场类型（获取颜色和时长）
+                    val matchedItem = findMatchedMarketItem(extract.title)
+                    val capsuleColor = matchedItem?.capsuleColor
+                    val durationMinutes = matchedItem?.durationMinutes
 
-                // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
-                val emoji = extract.emoji ?: matchedItem?.emoji
+                    // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
+                    val emoji = extract.emoji ?: matchedItem?.emoji
 
-                UnifiedNotificationManager(this)
-                    .showExtractNotification(
-                        title = extract.title,
-                        content = extract.content,
-                        timeText = timeText,
-                        capsuleColor = capsuleColor,
-                        emoji = emoji,
-                        qrBitmap = qrResult?.croppedBitmap
-                    )
+                    UnifiedNotificationManager(this)
+                        .showExtractNotification(
+                            title = extract.title,
+                            content = extract.content,
+                            timeText = timeText,
+                            capsuleColor = capsuleColor,
+                            emoji = emoji,
+                            qrBitmap = qrResult?.croppedBitmap
+                        )
 
-                // 设置定时取消通知
-                if (durationMinutes != null && durationMinutes > 0) {
-                    scheduleNotificationDismiss(durationMinutes)
+                    // 设置定时取消通知
+                    if (durationMinutes != null && durationMinutes > 0) {
+                        scheduleNotificationDismiss(durationMinutes)
+                    }
+
+                    val qrInfo = if (qrResult != null) " [含二维码]" else ""
+                    showToast("${extract.title}: ${extract.content}$qrInfo")
                 }
 
                 PinMeWidget.updateWidgetContent(this)
-
-                val qrInfo = if (qrResult != null) " [含二维码]" else ""
-                showToast("${extract.title}: ${extract.content}$qrInfo")
             } catch (e: Exception) {
                 Log.e(TAG, "processScreenshot failed", e)
                 showToast("模型处理失败")
