@@ -62,6 +62,9 @@ import androidx.core.content.getSystemService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
+import com.brycewg.pinme.ui.components.ExpandableFAB
+import com.brycewg.pinme.ui.components.LocalAddRecordActions
+import com.brycewg.pinme.ui.components.ManualAddDialog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -74,6 +77,11 @@ fun ExtractHome() {
     val context = LocalContext.current
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
+    val actions = LocalAddRecordActions.current
+
+    // FAB 和对话框状态
+    var fabExpanded by remember { mutableStateOf(false) }
+    var showManualDialog by remember { mutableStateOf(false) }
 
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
 
@@ -142,7 +150,8 @@ fun ExtractHome() {
             }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 列表内容
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -158,7 +167,7 @@ fun ExtractHome() {
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("暂无记录", style = MaterialTheme.typography.titleMedium)
-                            Text("点一下磁贴或点击「截屏识别」开始。", style = MaterialTheme.typography.bodyMedium)
+                            Text("点一下磁贴或点击右下角按钮添加。", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -203,7 +212,44 @@ fun ExtractHome() {
                     }
                 }
             }
+
+            // 底部留出 FAB 的空间
+            item {
+                Box(modifier = Modifier.padding(bottom = 80.dp))
+            }
         }
+
+        // 悬浮操作按钮
+        ExpandableFAB(
+            expanded = fabExpanded,
+            onExpandChange = { fabExpanded = it },
+            onManualClick = {
+                fabExpanded = false
+                showManualDialog = true
+            },
+            onImageClick = {
+                fabExpanded = false
+                actions?.onPickImage?.invoke()
+            },
+            onCameraClick = {
+                fabExpanded = false
+                actions?.onTakePhoto?.invoke()
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
+    }
+
+    // 手动添加对话框
+    if (showManualDialog) {
+        ManualAddDialog(
+            onDismiss = { showManualDialog = false },
+            onConfirm = { title, content, emoji ->
+                actions?.onManualAdd?.invoke(title, content, emoji)
+                showManualDialog = false
+            }
+        )
     }
 }
 

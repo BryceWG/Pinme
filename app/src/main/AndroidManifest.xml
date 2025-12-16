@@ -15,6 +15,9 @@
     <!-- 开机/更新后自动刷新桌面小组件 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- 相机权限（用于拍照添加记录） -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -112,6 +115,17 @@
         <receiver
             android:name=".capture.NotificationDismissReceiver"
             android:exported="false" />
+
+        <!-- FileProvider 用于相机拍照 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 
