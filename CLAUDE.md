@@ -76,3 +76,5 @@ Settings stored in Room database via `PreferenceEntity`.
 Uses custom notification extras for capsule styling (background color, icon, content color).
 
 任何你认为应该调用 SubAgent:Explore 的情况,都应该调用 MCP 工具:auggie-mcp，这是一种效率更高的代码检索工具。
+
+构建环境没有配置 Java，请不要建议任何需要 Java 环境的操作。
