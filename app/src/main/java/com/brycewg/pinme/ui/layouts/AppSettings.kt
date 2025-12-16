@@ -93,6 +93,9 @@ fun AppSettings() {
     var accessibilityServiceEnabled by remember { mutableStateOf(false) }
     var showAccessibilityDialog by remember { mutableStateOf(false) }
 
+    // 隐藏多任务卡片
+    var excludeFromRecents by remember { mutableStateOf(false) }
+
     data class LlmPrefsDraft(
         val provider: LlmProvider,
         val apiKey: String,
@@ -218,6 +221,8 @@ fun AppSettings() {
         // 加载无障碍截图模式设置
         useAccessibilityCapture = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+        // 加载隐藏多任务卡片设置
+        excludeFromRecents = dao.getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
     }
 
     LaunchedEffect(selectedProvider, hasInitialized) {
@@ -631,6 +636,34 @@ fun AppSettings() {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text("其他", style = MaterialTheme.typography.titleMedium)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("隐藏多任务卡片", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "从最近任务列表中隐藏本应用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = excludeFromRecents,
+                onCheckedChange = { enabled ->
+                    excludeFromRecents = enabled
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_EXCLUDE_FROM_RECENTS, enabled.toString())
+                    }
+                }
+            )
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 

@@ -14,6 +14,9 @@ object Constants {
     // 截图模式配置
     const val PREF_USE_ACCESSIBILITY_CAPTURE = "use_accessibility_capture"  // 是否使用无障碍截图模式
 
+    // 隐私配置
+    const val PREF_EXCLUDE_FROM_RECENTS = "exclude_from_recents"  // 是否从多任务管理中隐藏
+
     // LLM 配置
     const val PREF_LLM_PROVIDER = "llm_provider"           // 供应商类型: zhipu / siliconflow / custom
     const val PREF_LLM_API_KEY = "llm_api_key"             // API Key

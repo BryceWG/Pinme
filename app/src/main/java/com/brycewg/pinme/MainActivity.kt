@@ -1,6 +1,8 @@
 package com.brycewg.pinme
 
 import android.Manifest
+import android.app.ActivityManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -293,6 +295,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 检查并应用隐藏多任务卡片设置
+        applyExcludeFromRecentsIfNeeded()
+    }
+
     private fun checkAccessibilityServiceIfNeeded() {
         lifecycleScope.launch {
             val useAccessibilityCapture = withContext(Dispatchers.IO) {
@@ -303,6 +311,19 @@ class MainActivity : ComponentActivity() {
             // 如果开启了无障碍截图模式，但无障碍服务未启用，则跳转到设置页面
             if (useAccessibilityCapture && !AccessibilityCaptureService.isServiceEnabled(this@MainActivity)) {
                 AccessibilityCaptureService.openAccessibilitySettings(this@MainActivity)
+            }
+        }
+    }
+
+    private fun applyExcludeFromRecentsIfNeeded() {
+        lifecycleScope.launch {
+            val excludeFromRecents = withContext(Dispatchers.IO) {
+                DatabaseProvider.dao().getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
+            }
+
+            if (excludeFromRecents) {
+                val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                activityManager.appTasks.firstOrNull()?.setExcludeFromRecents(true)
             }
         }
     }
