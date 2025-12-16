@@ -17,4 +17,8 @@
     <string name="accessibility_capture_mode_desc">开启后使用无障碍服务进行截图，无需每次授权</string>
     <string name="accessibility_not_enabled">无障碍服务未开启</string>
     <string name="go_to_accessibility_settings">前往设置</string>
+
+    <!-- App Shortcuts -->
+    <string name="shortcut_capture_short">截图识别</string>
+    <string name="shortcut_capture_long">PinMe 截图识别</string>
 </resources>

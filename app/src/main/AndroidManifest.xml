@@ -40,16 +40,24 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <activity
             android:name=".capture.CaptureActivity"
-            android:exported="false"
+            android:exported="true"
             android:theme="@style/Theme.PinMe.Transparent"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"
-            android:noHistory="true" />
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <receiver android:name=".widget.PinMeWidgetReceiver"
             android:exported="true">
