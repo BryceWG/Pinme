@@ -38,6 +38,7 @@ import com.brycewg.pinme.ui.layouts.AppSettings
 import com.brycewg.pinme.ui.layouts.ExtractHome
 import com.brycewg.pinme.ui.layouts.MarketScreen
 import com.brycewg.pinme.ui.theme.StarScheduleTheme
+import com.brycewg.pinme.widget.PinMeWidget
 
 class MainActivity : ComponentActivity() {
 
@@ -52,6 +53,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         DatabaseProvider.init(this)
         enableEdgeToEdge()
+
+        // App 进程重启后，桌面小组件可能回到 initialLayout（“加载中...”），这里主动触发一次刷新
+        lifecycleScope.launch(Dispatchers.IO) {
+            PinMeWidget.updateWidgetContent(applicationContext)
+        }
 
         // 请求通知权限 (Android 13+)
         requestNotificationPermissionIfNeeded()

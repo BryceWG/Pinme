@@ -1,6 +1,7 @@
 package com.brycewg.pinme.widget
 
 import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -16,6 +17,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.LocalContext
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
@@ -104,7 +106,6 @@ private val PARAM_CREATED_AT = ActionParameters.Key<Long>("created_at")
  * Build ActionParameters for pin action
  */
 private fun buildPinActionParameters(item: WidgetExtractItem): ActionParameters {
-    // Base parameters
     val hasEmoji = item.emoji != null
     val hasQr = item.qrCodeBase64 != null
     val hasColor = item.capsuleColor != null
@@ -182,6 +183,7 @@ class PinToNotificationAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters
     ) {
+        val extractId = parameters[PARAM_EXTRACT_ID] ?: return
         val title = parameters[PARAM_TITLE] ?: return
         val content = parameters[PARAM_CONTENT] ?: return
         val emoji = parameters[PARAM_EMOJI]
@@ -191,7 +193,6 @@ class PinToNotificationAction : ActionCallback {
 
         val timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(createdAt))
 
-        // Decode QR code bitmap if available
         val qrBitmap = qrCodeBase64?.let { base64 ->
             try {
                 val bytes = Base64.decode(base64, Base64.NO_WRAP)
@@ -211,10 +212,10 @@ class PinToNotificationAction : ActionCallback {
             timeText = timeText,
             capsuleColor = capsuleColor,
             emoji = emoji,
-            qrBitmap = qrBitmap
+            qrBitmap = qrBitmap,
+            extractId = extractId
         )
 
-        // Show toast on main thread
         CoroutineScope(Dispatchers.Main).launch {
             val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -226,34 +227,31 @@ class PinMeWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        try {
-            if (!DatabaseProvider.isInitialized()) {
-                DatabaseProvider.init(context)
-            }
-            // Ensure widget data is loaded on startup
-            loadWidgetData(context, id)
-        } catch (e: Exception) {
-            Log.e(TAG, "Database init failed", e)
-        }
+        // 在 provideContent 之前先确保数据已加载
+        val data = loadDataDirectly(context)
 
         provideContent {
             GlanceTheme {
-                Content()
+                Content(data)
             }
         }
     }
 
     /**
-     * Load widget data if not already present
+     * 直接从数据库加载数据，不依赖 preferences state
      */
-    private suspend fun loadWidgetData(context: Context, glanceId: GlanceId) {
-        try {
+    private suspend fun loadDataDirectly(context: Context): WidgetExtractData {
+        return try {
+            if (!DatabaseProvider.isInitialized()) {
+                DatabaseProvider.init(context.applicationContext)
+            }
+
             val dao = DatabaseProvider.dao()
             val extracts = dao.getLatestExtractsOnce(10)
             val marketItems = dao.getEnabledMarketItems()
 
             val items = extracts.map { extract ->
-                val matchedItem = Companion.findMatchedMarketItem(extract.title, marketItems)
+                val matchedItem = findMatchedMarketItem(extract.title, marketItems)
                 WidgetExtractItem(
                     id = extract.id,
                     title = extract.title,
@@ -265,37 +263,15 @@ class PinMeWidget : GlanceAppWidget() {
                 )
             }
             val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            val widgetData = WidgetExtractData(items = items, updateTime = updateTime)
-            val json = jsonParser.encodeToString(WidgetExtractData.serializer(), widgetData)
-
-            updateAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId) { _: Preferences ->
-                mutablePreferencesOf().apply {
-                    this[KEY_EXTRACTS_JSON] = json
-                    this[KEY_UPDATE_TIME] = updateTime
-                }
-            }
+            WidgetExtractData(items = items, updateTime = updateTime)
         } catch (e: Exception) {
-            Log.e(TAG, "loadWidgetData failed", e)
+            Log.e(TAG, "loadDataDirectly failed", e)
+            WidgetExtractData(items = emptyList(), updateTime = "")
         }
     }
 
     @Composable
-    private fun Content() {
-        val prefs = currentState<Preferences>()
-        val extractsJson = prefs[KEY_EXTRACTS_JSON]
-        val lastUpdate = prefs[KEY_UPDATE_TIME] ?: ""
-
-        val data = try {
-            if (extractsJson.isNullOrBlank()) {
-                WidgetExtractData(items = emptyList(), updateTime = lastUpdate)
-            } else {
-                jsonParser.decodeFromString(WidgetExtractData.serializer(), extractsJson)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "JSON parse failed", e)
-            WidgetExtractData(items = emptyList(), updateTime = lastUpdate)
-        }
-
+    private fun Content(data: WidgetExtractData) {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -333,7 +309,6 @@ class PinMeWidget : GlanceAppWidget() {
             Spacer(modifier = GlanceModifier.height(8.dp))
 
             if (data.items.isEmpty()) {
-                // Empty state
                 Box(
                     modifier = GlanceModifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -357,7 +332,6 @@ class PinMeWidget : GlanceAppWidget() {
                     }
                 }
             } else {
-                // Extract items list - scrollable
                 LazyColumn(
                     modifier = GlanceModifier.fillMaxSize()
                 ) {
@@ -374,10 +348,8 @@ class PinMeWidget : GlanceAppWidget() {
 
     @Composable
     private fun ExtractItemRow(item: WidgetExtractItem) {
-        // Parse capsule color and lighten it for button background
         val buttonColor = try {
             val baseColor = ComposeColor((item.capsuleColor ?: DEFAULT_CAPSULE_COLOR).toColorInt())
-            // Lighten the color by mixing with white (30% original, 70% white)
             ComposeColor(
                 red = baseColor.red * 0.4f + 0.6f,
                 green = baseColor.green * 0.4f + 0.6f,
@@ -385,7 +357,7 @@ class PinMeWidget : GlanceAppWidget() {
                 alpha = 1f
             )
         } catch (e: Exception) {
-            ComposeColor(0xFFFFE0B2) // Light orange as fallback
+            ComposeColor(0xFFFFE0B2)
         }
 
         Row(
@@ -396,7 +368,6 @@ class PinMeWidget : GlanceAppWidget() {
                 .padding(8.dp),
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
-            // Left: emoji
             if (item.emoji != null) {
                 Text(
                     text = item.emoji,
@@ -405,7 +376,6 @@ class PinMeWidget : GlanceAppWidget() {
                 Spacer(modifier = GlanceModifier.width(8.dp))
             }
 
-            // Middle: title and content
             Column(
                 modifier = GlanceModifier.defaultWeight()
             ) {
@@ -431,7 +401,6 @@ class PinMeWidget : GlanceAppWidget() {
 
             Spacer(modifier = GlanceModifier.width(6.dp))
 
-            // Right: pin button with matching color
             Box(
                 modifier = GlanceModifier
                     .size(32.dp)
@@ -457,75 +426,23 @@ class PinMeWidget : GlanceAppWidget() {
 
     companion object {
         suspend fun updateWidgetContent(context: Context) {
-            if (!DatabaseProvider.isInitialized()) {
-                DatabaseProvider.init(context)
-            }
-
-            val dao = DatabaseProvider.dao()
-            val extracts = dao.getLatestExtractsOnce(10)
-            val marketItems = dao.getEnabledMarketItems()
-
-            val items = extracts.map { extract ->
-                // Find matching market item for color
-                val matchedItem = findMatchedMarketItem(extract.title, marketItems)
-                WidgetExtractItem(
-                    id = extract.id,
-                    title = extract.title,
-                    content = extract.content,
-                    emoji = extract.emoji ?: matchedItem?.emoji,
-                    qrCodeBase64 = extract.qrCodeBase64,
-                    capsuleColor = matchedItem?.capsuleColor,
-                    createdAtMillis = extract.createdAtMillis
-                )
-            }
-            val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            val widgetData = WidgetExtractData(items = items, updateTime = updateTime)
-            val json = jsonParser.encodeToString(WidgetExtractData.serializer(), widgetData)
-
-            val manager = GlanceAppWidgetManager(context)
-            val glanceIds = manager.getGlanceIds(PinMeWidget::class.java)
-            if (glanceIds.isEmpty()) return
-
-            val validGlanceIds = glanceIds.filter { id ->
-                try {
-                    val appWidgetId = manager.getAppWidgetId(id)
-                    val appWidgetManager = AppWidgetManager.getInstance(context)
-                    appWidgetManager.getAppWidgetInfo(appWidgetId) != null
-                } catch (_: Exception) {
-                    false
-                }
-            }
-            if (validGlanceIds.isEmpty()) return
-
-            validGlanceIds.forEach { id ->
-                try {
-                    updateAppWidgetState(context, PreferencesGlanceStateDefinition, id) { _: Preferences ->
-                        mutablePreferencesOf().apply {
-                            this[KEY_EXTRACTS_JSON] = json
-                            this[KEY_UPDATE_TIME] = updateTime
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "updateAppWidgetState failed", e)
-                }
-            }
-
             try {
-                PinMeWidget().updateAll(context)
+                val appContext = context.applicationContext
+                val appWidgetIds = AppWidgetManager.getInstance(appContext).getAppWidgetIds(
+                    ComponentName(appContext, PinMeWidgetReceiver::class.java)
+                )
+                if (appWidgetIds.isEmpty()) return
+
+                // 直接触发所有小组件更新，让 provideGlance 重新加载数据
+                PinMeWidget().updateAll(appContext)
             } catch (e: Exception) {
-                Log.e(TAG, "updateAll failed", e)
+                Log.e(TAG, "updateWidgetContent failed", e)
             }
         }
 
-        /**
-         * Find matching market item by title
-         */
         private fun findMatchedMarketItem(title: String, marketItems: List<MarketItemEntity>): MarketItemEntity? {
-            // Exact match
             val exactMatch = marketItems.find { it.title == title }
             if (exactMatch != null) return exactMatch
-
-            // Fuzzy match
             return marketItems.find {
                 title.contains(it.title) || it.title.contains(title)
             }
@@ -538,27 +455,9 @@ class PinMeWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                PinMeWidget.updateWidgetContent(context)
-            } catch (e: Exception) {
-                Log.e(TAG, "initial update failed", e)
-            }
-        }
     }
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-    }
-
-    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                PinMeWidget.updateWidgetContent(context)
-            } catch (e: Exception) {
-                Log.e(TAG, "onUpdate failed", e)
-            }
-        }
     }
 }
