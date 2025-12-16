@@ -1,21 +1,10 @@
 # =====================================================
-# PinMe ProGuard/R8 Rules
+# PinMe ProGuard/R8 Rules - 精简版
 # =====================================================
 
-# =====================================================
-# Kotlin
-# =====================================================
--dontwarn kotlin.**
--keep class kotlin.Metadata { *; }
--keepclassmembers class kotlin.Metadata {
-    public <methods>;
-}
-
-# =====================================================
-# Kotlin Serialization
-# =====================================================
+# Kotlin Serialization - 只保留序列化相关
 -keepattributes *Annotation*, InnerClasses
--dontnote kotlinx.serialization.AnnotationsKt
+-dontnote kotlinx.serialization.**
 
 -keepclassmembers @kotlinx.serialization.Serializable class ** {
     *** Companion;
@@ -23,60 +12,21 @@
 -keepclasseswithmembers class **$$serializer {
     *** INSTANCE;
 }
--if @kotlinx.serialization.Serializable class **
--keepclassmembers class <1> {
-    static <1>$Companion Companion;
-}
--if @kotlinx.serialization.Serializable class ** {
-    static **$* *;
-}
--keepclassmembers class <2>$<3> {
-    kotlinx.serialization.KSerializer serializer(...);
-}
--if @kotlinx.serialization.Serializable class ** {
-    public static ** INSTANCE;
-}
--keepclassmembers class <1> {
-    public static <1> INSTANCE;
-    kotlinx.serialization.KSerializer serializer(...);
-}
 
-# =====================================================
-# Room Database
-# =====================================================
--keep class * extends androidx.room.RoomDatabase
+# Room - 只保留实体注解
 -keep @androidx.room.Entity class *
--dontwarn androidx.room.paging.**
+-keep @androidx.room.Dao class *
 
-# =====================================================
-# OkHttp
-# =====================================================
--dontwarn okhttp3.**
--dontwarn okio.**
--keep class okhttp3.** { *; }
--keep interface okhttp3.** { *; }
+# OkHttp - 最小化规则
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
 
-# =====================================================
-# ML Kit Barcode Scanning
-# =====================================================
--keep class com.google.mlkit.** { *; }
+# ML Kit - 只保留必要的
 -dontwarn com.google.mlkit.**
 
-# =====================================================
-# Glance AppWidget
-# =====================================================
--keep class androidx.glance.** { *; }
-
-# =====================================================
-# Project-specific: Keep data classes used in JSON parsing
-# =====================================================
--keep class com.brycewg.pinme.db.** { *; }
--keep class com.brycewg.pinme.extract.** { *; }
--keep class com.brycewg.pinme.vllm.** { *; }
-
-# =====================================================
-# Remove logging in release builds (optional, reduces size)
-# =====================================================
+# 移除 release 版本的日志
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);

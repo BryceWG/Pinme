@@ -17,6 +17,14 @@
 3. 点击磁贴：首次会弹出系统截屏授权；识别完成后会推送通知并刷新桌面插件。
 4. 无障碍服务：可选，开启后静默截图，无需每次申请录屏权限。
 
+## 配置
+
+1. 启动软件,允许通知权限
+2. 进入设置页配置模型 API,推荐使用智谱的免费模型 glm-4v-flash,速度快,效果稳.注册并申请:https://bigmodel.cn/usercenter/proj-mgmt/apikeys
+3. 可以将快捷方式发送到桌面,使用快捷小窗触发截图
+4. 可以固定磁贴到控制中心,触发截图
+
 ## 致谢
 
 - 感谢 [StarSchedule](https://github.com/lightStarrr/starSchedule) 提供的 Flyme 实况通知调用参考。
+- 感谢群友 Ruyue 提供的实况通知代码支持。
