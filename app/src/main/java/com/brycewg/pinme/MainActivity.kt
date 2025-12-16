@@ -1,9 +1,19 @@
 package com.brycewg.pinme
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.brycewg.pinme.capture.AccessibilityCaptureService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
@@ -30,14 +40,51 @@ import com.brycewg.pinme.ui.layouts.MarketScreen
 import com.brycewg.pinme.ui.theme.StarScheduleTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // 无论用户是否授权，都继续运行应用
+        // 用户可以稍后在设置中手动授权
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DatabaseProvider.init(this)
         enableEdgeToEdge()
 
+        // 请求通知权限 (Android 13+)
+        requestNotificationPermissionIfNeeded()
+
+        // 检查无障碍截图模式是否需要引导用户开启无障碍服务
+        checkAccessibilityServiceIfNeeded()
+
         setContent {
             StarScheduleTheme {
                 AppRoot()
+            }
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val permission = Manifest.permission.POST_NOTIFICATIONS
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(permission)
+            }
+        }
+    }
+
+    private fun checkAccessibilityServiceIfNeeded() {
+        lifecycleScope.launch {
+            val useAccessibilityCapture = withContext(Dispatchers.IO) {
+                val dao = DatabaseProvider.dao()
+                dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE)?.toBoolean() ?: false
+            }
+
+            // 如果开启了无障碍截图模式，但无障碍服务未启用，则跳转到设置页面
+            if (useAccessibilityCapture && !AccessibilityCaptureService.isServiceEnabled(this@MainActivity)) {
+                AccessibilityCaptureService.openAccessibilitySettings(this@MainActivity)
             }
         }
     }
