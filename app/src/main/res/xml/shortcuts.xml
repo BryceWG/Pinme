@@ -3,7 +3,7 @@
     <shortcut
         android:shortcutId="quick_capture"
         android:enabled="true"
-        android:icon="@drawable/ic_notification"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/shortcut_capture_short"
         android:shortcutLongLabel="@string/shortcut_capture_long">
         <intent

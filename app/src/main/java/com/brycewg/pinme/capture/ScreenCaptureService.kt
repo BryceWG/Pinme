@@ -114,7 +114,7 @@ class ScreenCaptureService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("PinMe")
             .setContentText("正在截屏识别…")
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_stat_pin)
             .setOngoing(true)
             .build()
     }

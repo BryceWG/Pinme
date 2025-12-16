@@ -315,7 +315,7 @@ class UnifiedNotificationManager(private val context: Context) {
         }
 
         val notification = Notification.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle(title)
             .setContentText(content)
             .addExtras(liveBundle)
@@ -358,7 +358,7 @@ class UnifiedNotificationManager(private val context: Context) {
 
         val header = if (timeText.isBlank()) title else "$title · $timeText"
         val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle(header)
             .setContentText(content)
             .setContentIntent(pendingIntent)
