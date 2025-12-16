@@ -1,6 +1,7 @@
 name: Release APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -62,11 +63,15 @@ jobs:
         run: chmod +x gradlew
 
       - name: Decode Keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > app/release.keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | tr -d '\n\r ' | base64 -d > app/release.keystore
+            echo "Keystore decoded successfully"
+          else
+            echo "KEYSTORE_BASE64 not set, skipping"
+          fi
 
       - name: Build Release APK
         env:
