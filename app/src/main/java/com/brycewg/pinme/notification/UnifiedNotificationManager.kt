@@ -24,6 +24,7 @@ import androidx.core.net.toUri
 import com.brycewg.pinme.Constants
 import com.brycewg.pinme.MainActivity
 import com.brycewg.pinme.R
+import com.brycewg.pinme.capture.NotificationDismissReceiver
 import com.brycewg.pinme.db.DatabaseProvider
 import kotlinx.coroutines.runBlocking
 
@@ -41,6 +42,16 @@ class UnifiedNotificationManager(private val context: Context) {
 
         /** 默认胶囊颜色（橙色） */
         const val DEFAULT_CAPSULE_COLOR = "#FF9800"
+
+        /**
+         * 将颜色与白色混合：40% 原色 + 60% 白色
+         */
+        fun blendWithWhite(color: Int): Int {
+            val r = ((android.graphics.Color.red(color) * 0.4 + 255 * 0.6)).toInt()
+            val g = ((android.graphics.Color.green(color) * 0.4 + 255 * 0.6)).toInt()
+            val b = ((android.graphics.Color.blue(color) * 0.4 + 255 * 0.6)).toInt()
+            return android.graphics.Color.rgb(r, g, b)
+        }
 
         /** 当前显示在通知上的记录 ID，用于判断删除时是否需要取消通知 */
         @Volatile
@@ -214,6 +225,18 @@ class UnifiedNotificationManager(private val context: Context) {
             putInt("notification.live.contentColor", contentColor.toArgb())
         }
 
+        // 关闭按钮的 PendingIntent
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java)
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            NotificationDismissReceiver.REQUEST_CODE,
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 计算撕开区域的混合颜色（40% 胶囊色 + 60% 白色）
+        val tearAreaColor = blendWithWhite(capsuleBgColor.toColorInt())
+
         // 根据是否有二维码选择不同的布局
         val remoteViews = if (qrBitmap != null) {
             RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
@@ -221,6 +244,10 @@ class UnifiedNotificationManager(private val context: Context) {
                 setTextViewText(R.id.location, content)
                 setTextViewText(R.id.live_time, timeText)
                 setImageViewBitmap(R.id.qr_code_image, qrBitmap)
+                setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                // 设置撕开区域和锯齿的颜色
+                setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
+                setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
             }
         } else {
             RemoteViews(context.packageName, R.layout.live_notification_card).apply {
@@ -228,6 +255,10 @@ class UnifiedNotificationManager(private val context: Context) {
                 setTextViewText(R.id.location, content)
                 setTextViewText(R.id.live_time, timeText)
                 setTextViewText(R.id.live_icon, emoji ?: "❌")
+                setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                // 设置撕开区域和锯齿的颜色
+                setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
+                setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
             }
         }
 

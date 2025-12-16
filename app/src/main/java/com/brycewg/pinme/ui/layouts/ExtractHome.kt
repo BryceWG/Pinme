@@ -164,11 +164,14 @@ fun ExtractHome() {
                 }
             } else {
                 items(extracts.toList(), key = { it.id }) { item ->
+                    // 根据 title 匹配市场类型
+                    val matchedMarketItem = marketItems.find { it.title == item.title }
                     // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
-                    val emoji = item.emoji ?: marketItems.find { it.title == item.title }?.emoji
+                    val emoji = item.emoji ?: matchedMarketItem?.emoji
                     ExtractCard(
                         item = item,
                         emoji = emoji,
+                        capsuleColor = matchedMarketItem?.capsuleColor,
                         onDelete = {
                             // 仅当删除的记录正在显示为通知时才取消
                             UnifiedNotificationManager(context).cancelExtractNotificationIfMatches(item.id)
@@ -211,7 +214,7 @@ private enum class ExtractCardSwipeState {
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun ExtractCard(item: ExtractEntity, emoji: String?, onDelete: () -> Unit) {
+private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: String?, onDelete: () -> Unit) {
     val context = LocalContext.current
     val time = DateFormat.format("MM-dd HH:mm", item.createdAtMillis).toString()
     val pinTimeText = DateFormat.format("HH:mm", item.createdAtMillis).toString()
@@ -303,6 +306,7 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, onDelete: () -> Uni
                                 title = item.title,
                                 content = item.content,
                                 timeText = pinTimeText,
+                                capsuleColor = capsuleColor,
                                 emoji = emoji,
                                 qrBitmap = qrBitmap,
                                 extractId = item.id

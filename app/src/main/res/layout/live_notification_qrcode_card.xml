@@ -3,16 +3,19 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:padding="8dp">
+    android:minHeight="100dp">
 
-    <!-- 左侧：文字信息 -->
+    <!-- 左侧：主内容区域 -->
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_weight="1"
-        android:layout_marginEnd="12dp"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
 
         <TextView
             android:id="@+id/live_title"
@@ -45,11 +48,32 @@
             android:textSize="20sp" />
     </LinearLayout>
 
-    <!-- 右侧：二维码图片 -->
+    <!-- 中间：锯齿分隔线（无边距，完全填充高度） -->
     <ImageView
-        android:id="@+id/qr_code_image"
-        android:layout_width="110dp"
-        android:layout_height="110dp"
-        android:scaleType="fitCenter"
-        android:contentDescription="@string/qr_code_image_desc" />
+        android:id="@+id/ticket_perforation"
+        android:layout_width="12dp"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/ticket_perforation"
+        android:contentDescription="@null" />
+
+    <!-- 右侧：撕开区域（点击消除通知），背景与锯齿同色，显示二维码 -->
+    <FrameLayout
+        android:id="@+id/btn_close"
+        android:layout_width="100dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="-1dp"
+        android:background="@drawable/ticket_tear_background"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingEnd="6dp">
+
+        <ImageView
+            android:id="@+id/qr_code_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/qr_code_image_desc" />
+    </FrameLayout>
 </LinearLayout>

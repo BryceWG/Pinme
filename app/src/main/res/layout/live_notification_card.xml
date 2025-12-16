@@ -2,16 +2,20 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="8dp">
+    android:minHeight="80dp">
 
-    <!-- 左侧：文字信息 -->
+    <!-- 左侧：主内容区域 -->
     <LinearLayout
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
 
         <!-- 第一行：标题 + 时间 -->
         <LinearLayout
@@ -64,12 +68,31 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <!-- 右侧：Emoji 图标 -->
-    <TextView
-        android:id="@+id/live_icon"
+    <!-- 中间：锯齿分隔线（无边距，完全填充高度） -->
+    <ImageView
+        android:id="@+id/ticket_perforation"
+        android:layout_width="12dp"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/ticket_perforation"
+        android:contentDescription="@null" />
+
+    <!-- 右侧：撕开区域（点击消除通知），背景与锯齿同色 -->
+    <FrameLayout
+        android:id="@+id/btn_close"
         android:layout_width="64dp"
-        android:layout_height="64dp"
-        android:layout_marginStart="8dp"
-        android:gravity="center"
-        android:textSize="48sp" />
+        android:layout_height="match_parent"
+        android:layout_marginStart="-1dp"
+        android:background="@drawable/ticket_tear_background"
+        android:clickable="true"
+        android:focusable="true"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:id="@+id/live_icon"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textSize="48sp" />
+    </FrameLayout>
 </LinearLayout>

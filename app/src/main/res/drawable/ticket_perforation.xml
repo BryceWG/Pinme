@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp"
+    android:height="100dp"
+    android:viewportWidth="12"
+    android:viewportHeight="100">
+    <!-- 锯齿状分隔线，模拟票券撕开条 -->
+    <!-- 每个锯齿高度 10，共 12 个 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M0,0 L6,5 L0,10
+            L6,15 L0,20
+            L6,25 L0,30
+            L6,35 L0,40
+            L6,45 L0,50
+            L6,55 L0,60
+            L6,65 L0,70
+            L6,75 L0,80
+            L6,85 L0,90
+            L6,95 L0,100
+            L6,105 L0,110
+            L6,115 L0,120
+            L12,120 L12,0 Z" />
+</vector>

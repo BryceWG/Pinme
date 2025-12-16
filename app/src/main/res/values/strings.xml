@@ -5,6 +5,9 @@
     <string name="location_example">取餐码 123456</string>
     <string name="class_example">识别结果</string>
 
+    <!-- 通知 -->
+    <string name="close">关闭</string>
+
     <!-- 二维码 -->
     <string name="qr_code_image_desc">二维码图片</string>
 
