@@ -157,6 +157,9 @@ class ScreenCaptureService : Service() {
 
                     // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
                     val emoji = extract.emoji ?: matchedItem?.emoji
+                    
+                    // 为每个通知生成唯一ID
+                    val notificationId = com.brycewg.pinme.notification.UnifiedNotificationManager.generateNotificationId()
 
                     UnifiedNotificationManager(this)
                         .showExtractNotification(
@@ -165,12 +168,13 @@ class ScreenCaptureService : Service() {
                             timeText = timeText,
                             capsuleColor = capsuleColor,
                             emoji = emoji,
-                            qrBitmap = qrResult?.croppedBitmap
+                            qrBitmap = qrResult?.croppedBitmap,
+                            notificationId = notificationId
                         )
 
                     // 设置定时取消通知
                     if (durationMinutes != null && durationMinutes > 0) {
-                        scheduleNotificationDismiss(durationMinutes)
+                        scheduleNotificationDismiss(durationMinutes, notificationId)
                     }
 
                     val qrInfo = if (qrResult != null) " [含二维码]" else ""
@@ -299,12 +303,14 @@ class ScreenCaptureService : Service() {
     /**
      * 设置定时取消通知
      */
-    private fun scheduleNotificationDismiss(durationMinutes: Int) {
+    private fun scheduleNotificationDismiss(durationMinutes: Int, notificationId: Int = com.brycewg.pinme.notification.UnifiedNotificationManager.EXTRACT_NOTIFICATION_ID) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, NotificationDismissReceiver::class.java)
+        val intent = Intent(this, NotificationDismissReceiver::class.java).apply {
+            putExtra("notification_id", notificationId)
+        }
         val pendingIntent = PendingIntent.getBroadcast(
             this,
-            NotificationDismissReceiver.REQUEST_CODE,
+            notificationId, // 使用通知ID作为requestCode，确保每个通知有独立的PendingIntent
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

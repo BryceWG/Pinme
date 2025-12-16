@@ -38,9 +38,21 @@ class UnifiedNotificationManager(private val context: Context) {
         private const val NORMAL_CHANNEL_NAME = "PinMe"
 
         const val EXTRACT_NOTIFICATION_ID = 2001
+        const val MULTI_EXTRACT_NOTIFICATION_ID_START = 3000 // 多信息模式通知ID起始值
 
         /** 默认胶囊颜色（橙色） */
         const val DEFAULT_CAPSULE_COLOR = "#FF9800"
+        
+        // 用于生成唯一通知ID的原子计数器
+        private var notificationIdCounter = MULTI_EXTRACT_NOTIFICATION_ID_START
+        
+        /**
+         * 生成唯一的通知ID
+         */
+        @Synchronized
+        fun generateNotificationId(): Int {
+            return notificationIdCounter++
+        }
     }
 
     init {
@@ -50,11 +62,19 @@ class UnifiedNotificationManager(private val context: Context) {
     fun cancelExtractNotification() {
         notificationManager.cancel(EXTRACT_NOTIFICATION_ID)
     }
+    
+    /**
+     * 取消指定ID的通知
+     */
+    fun cancelExtractNotification(notificationId: Int) {
+        notificationManager.cancel(notificationId)
+    }
 
     /**
      * @param capsuleColor 胶囊颜色，如 "#FFC107"。传 null 使用默认橙色
      * @param emoji 实况通知卡片右侧显示的 emoji，如 "📦"。传 null 使用默认星星
      * @param qrBitmap 二维码图片，如果检测到二维码则传入，替代 emoji 显示
+     * @param notificationId 通知ID，默认使用固定的EXTRACT_NOTIFICATION_ID
      */
     fun showExtractNotification(
         title: String,
@@ -62,7 +82,8 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String = "",
         capsuleColor: String? = null,
         emoji: String? = null,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        notificationId: Int = EXTRACT_NOTIFICATION_ID
     ) {
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
@@ -71,14 +92,16 @@ class UnifiedNotificationManager(private val context: Context) {
                 timeText = timeText,
                 customCapsuleColor = capsuleColor,
                 emoji = emoji,
-                qrBitmap = qrBitmap
+                qrBitmap = qrBitmap,
+                notificationId = notificationId
             )
         } else {
             showNormalNotification(
                 title = title,
                 content = content,
                 timeText = timeText,
-                qrBitmap = qrBitmap
+                qrBitmap = qrBitmap,
+                notificationId = notificationId
             )
         }
     }
@@ -144,7 +167,8 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String,
         customCapsuleColor: String? = null,
         emoji: String? = null,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        notificationId: Int = EXTRACT_NOTIFICATION_ID
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -216,14 +240,15 @@ class UnifiedNotificationManager(private val context: Context) {
             .setAutoCancel(false)
             .build()
 
-        notificationManager.notify(EXTRACT_NOTIFICATION_ID, notification)
+        notificationManager.notify(notificationId, notification)
     }
 
     private fun showNormalNotification(
         title: String,
         content: String,
         timeText: String,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        notificationId: Int = EXTRACT_NOTIFICATION_ID
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -260,7 +285,7 @@ class UnifiedNotificationManager(private val context: Context) {
             )
         }
 
-        notificationManager.notify(EXTRACT_NOTIFICATION_ID, builder.build())
+        notificationManager.notify(notificationId, builder.build())
     }
 }
 

@@ -17,7 +17,9 @@ class NotificationDismissReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent?) {
-        Log.d(TAG, "Dismissing notification due to timeout")
-        UnifiedNotificationManager(context).cancelExtractNotification()
+        val notificationId = intent?.getIntExtra("notification_id", UnifiedNotificationManager.EXTRACT_NOTIFICATION_ID) 
+            ?: UnifiedNotificationManager.EXTRACT_NOTIFICATION_ID
+        Log.d(TAG, "Dismissing notification with ID: $notificationId")
+        UnifiedNotificationManager(context).cancelExtractNotification(notificationId)
     }
 }
