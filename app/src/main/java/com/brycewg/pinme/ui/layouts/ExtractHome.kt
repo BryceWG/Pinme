@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -62,6 +63,7 @@ import androidx.core.content.getSystemService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
+import com.brycewg.pinme.ui.components.EditRecordDialog
 import com.brycewg.pinme.ui.components.ExpandableFAB
 import com.brycewg.pinme.ui.components.LocalAddRecordActions
 import com.brycewg.pinme.ui.components.ManualAddDialog
@@ -82,6 +84,7 @@ fun ExtractHome() {
     // FAB 和对话框状态
     var fabExpanded by remember { mutableStateOf(false) }
     var showManualDialog by remember { mutableStateOf(false) }
+    var editingItem by remember { mutableStateOf<ExtractEntity?>(null) }
 
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
 
@@ -181,6 +184,7 @@ fun ExtractHome() {
                         item = item,
                         emoji = emoji,
                         capsuleColor = matchedMarketItem?.capsuleColor,
+                        onEdit = { editingItem = item },
                         onDelete = {
                             // 如果删除的记录正在显示为通知则取消
                             UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
@@ -251,6 +255,21 @@ fun ExtractHome() {
             }
         )
     }
+
+    // 编辑对话框
+    editingItem?.let { item ->
+        EditRecordDialog(
+            item = item,
+            onDismiss = { editingItem = null },
+            onConfirm = { title, content, emoji ->
+                scope.launch {
+                    dao.updateExtract(item.id, title, content, emoji)
+                }
+                Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
+                editingItem = null
+            }
+        )
+    }
 }
 
 private enum class ExtractCardSwipeState {
@@ -260,7 +279,7 @@ private enum class ExtractCardSwipeState {
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: String?, onDelete: () -> Unit) {
+private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: String?, onEdit: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     val time = DateFormat.format("MM-dd HH:mm", item.createdAtMillis).toString()
     val pinTimeText = DateFormat.format("HH:mm", item.createdAtMillis).toString()
@@ -336,6 +355,12 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(onClick = onEdit) {
+                            Icon(
+                                imageVector = Icons.Rounded.Edit,
+                                contentDescription = "编辑"
+                            )
+                        }
                         IconButton(onClick = {
                             val notificationManager = UnifiedNotificationManager(context)
                             val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()

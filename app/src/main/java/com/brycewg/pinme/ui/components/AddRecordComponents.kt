@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.brycewg.pinme.db.DatabaseProvider
+import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.extract.ExtractWorkflow
 import kotlinx.coroutines.launch
@@ -382,6 +383,164 @@ fun ManualAddDialog(
                 enabled = selectedPreset != null && title.isNotBlank() && content.isNotBlank() && !isExtracting
             ) {
                 Text("添加")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
+}
+
+/**
+ * 编辑记录对话框
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditRecordDialog(
+    item: ExtractEntity,
+    onDismiss: () -> Unit,
+    onConfirm: (title: String, content: String, emoji: String?) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val textFieldShape = RoundedCornerShape(16.dp)
+
+    var title by remember { mutableStateOf(item.title) }
+    var content by remember { mutableStateOf(item.content) }
+    var emoji by remember { mutableStateOf(item.emoji ?: "") }
+
+    // 文本提取相关状态
+    var extractInput by remember { mutableStateOf("") }
+    var isExtracting by remember { mutableStateOf(false) }
+    var extractError by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑记录") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // 标题输入
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("标题") },
+                    placeholder = { Text("如：取件码") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    singleLine = true
+                )
+
+                // 内容输入
+                OutlinedTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    label = { Text("内容") },
+                    placeholder = { Text("如：12-3-4567") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    minLines = 2,
+                    maxLines = 4
+                )
+
+                // Emoji 输入
+                OutlinedTextField(
+                    value = emoji,
+                    onValueChange = { if (it.length <= 4) emoji = it },
+                    label = { Text("图标（可选）") },
+                    placeholder = { Text("如：📦") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    singleLine = true,
+                    supportingText = { Text("留空使用默认图标") }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 智能提取输入框
+                OutlinedTextField(
+                    value = extractInput,
+                    onValueChange = {
+                        extractInput = it
+                        extractError = null
+                    },
+                    label = { Text("智能提取（可选）") },
+                    placeholder = { Text("粘贴文本，AI 自动识别关键信息") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    minLines = 2,
+                    maxLines = 4,
+                    trailingIcon = {
+                        if (isExtracting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    if (extractInput.isNotBlank()) {
+                                        scope.launch {
+                                            isExtracting = true
+                                            extractError = null
+                                            try {
+                                                val result = ExtractWorkflow(context).extractFromText(extractInput)
+                                                title = result.title
+                                                content = result.content
+                                                emoji = result.emoji ?: ""
+                                                // 清空输入框表示已处理
+                                                extractInput = ""
+                                            } catch (e: Exception) {
+                                                extractError = e.message ?: "提取失败"
+                                            } finally {
+                                                isExtracting = false
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = extractInput.isNotBlank()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Send,
+                                    contentDescription = "提取",
+                                    tint = if (extractInput.isNotBlank())
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    isError = extractError != null,
+                    supportingText = {
+                        if (extractError != null) {
+                            Text(extractError!!, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("输入后点击发送按钮自动填充上方字段")
+                        }
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank() && content.isNotBlank()) {
+                        onConfirm(
+                            title.trim(),
+                            content.trim(),
+                            emoji.trim().takeIf { it.isNotBlank() }
+                        )
+                    }
+                },
+                enabled = title.isNotBlank() && content.isNotBlank() && !isExtracting
+            ) {
+                Text("保存")
             }
         },
         dismissButton = {
