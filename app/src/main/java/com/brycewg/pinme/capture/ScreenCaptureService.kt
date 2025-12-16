@@ -142,13 +142,16 @@ class ScreenCaptureService : Service() {
                 val capsuleColor = matchedItem?.capsuleColor
                 val durationMinutes = matchedItem?.durationMinutes
 
+                // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
+                val emoji = extract.emoji ?: matchedItem?.emoji
+
                 UnifiedNotificationManager(this)
                     .showExtractNotification(
                         title = extract.title,
                         content = extract.content,
                         timeText = timeText,
                         capsuleColor = capsuleColor,
-                        emoji = matchedItem?.emoji,
+                        emoji = emoji,
                         qrBitmap = qrResult?.croppedBitmap
                     )
 

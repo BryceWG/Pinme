@@ -14,6 +14,7 @@ data class ExtractEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val content: String,
+    val emoji: String? = null,        // LLM 生成的 emoji，更精准地表达内容
     val source: String = "screen",
     val rawModelOutput: String = "",
     val createdAtMillis: Long

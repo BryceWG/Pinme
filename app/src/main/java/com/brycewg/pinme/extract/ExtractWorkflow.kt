@@ -68,6 +68,7 @@ class ExtractWorkflow(
         val entity = ExtractEntity(
             title = parsed.title,
             content = parsed.content,
+            emoji = parsed.emoji,
             source = "screen",
             rawModelOutput = modelOutput,
             createdAtMillis = System.currentTimeMillis()
@@ -133,23 +134,12 @@ $typesList
             ""
         }
 
-        val examplesSection = if (normalTypes.isNotEmpty()) {
-            val examples = normalTypes.take(4).joinToString("\n") { item ->
-                val sampleContent = when (item.presetKey) {
-                    "pickup_code" -> "5-8-2-1"
-                    "meal_code" -> "A128"
-                    "train_ticket" -> "G1234 07车 12F 检票口B2"
-                    "verification_code" -> "847291"
-                    "qr_code" -> "票券二维码"
-                    else -> "示例${item.contentDesc}"
-                }
-                """{"title":"${item.title}","content":"$sampleContent"}"""
-            }
-            """
-$examples"""
-        } else {
-            ""
-        }
+        val examplesSection = """
+{"title":"取餐码","content":"A128","emoji":"☕"}
+{"title":"取餐码","content":"B032","emoji":"🍔"}
+{"title":"取件码","content":"5-8-2-1","emoji":"📦"}
+{"title":"火车票","content":"G1234 07车 12F","emoji":"🚄"}
+{"title":"验证码","content":"847291","emoji":"🔑"}"""
 
         // 无匹配类型的处理说明
         val noMatchSection = if (noMatchType != null) {
@@ -162,15 +152,15 @@ $examples"""
 - 若截图为纯装饰性内容或无实质信息，content 填写"无有效信息"
 
 示例：
-{"title":"${noMatchType.title}","content":"微信支付成功 ¥128.00"}
-{"title":"${noMatchType.title}","content":"航班CA1234 准点"}
-{"title":"${noMatchType.title}","content":"无有效信息"}"""
+{"title":"${noMatchType.title}","content":"微信支付成功 ¥128.00","emoji":"✅"}
+{"title":"${noMatchType.title}","content":"航班CA1234 准点","emoji":"✈️"}
+{"title":"${noMatchType.title}","content":"无有效信息","emoji":"❓"}"""
         } else {
             """
 
 ## 无匹配情况
 若截图无明确关键信息，返回：
-{"title":"识别结果","content":"截图主要内容概述"}"""
+{"title":"识别结果","content":"截图主要内容概述","emoji":"📄"}"""
         }
 
         return """
@@ -178,7 +168,7 @@ $examples"""
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
-{"title":"类型简称","content":"关键信息"}
+{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}
 
 示例：$examplesSection
 
@@ -187,6 +177,10 @@ $typesSection
 2. content 只保留最核心的可复制内容，去除无关修饰
 3. 优先匹配最具体的类型（如"取件码"优于"无匹配"）
 4. 验证码类识别需精确，数字/字母不可遗漏或错误
+5. **emoji 必须根据截图中的品牌/商品/场景选择**，而非类型：
+   - 咖啡店（瑞幸、星巴克）→ ☕ | 奶茶店 → 🧋 | 汉堡店 → 🍔 | 面馆 → 🍜 | 炸鸡店 → 🍗
+   - 高铁 → 🚄 | 飞机 → ✈️ | 电影票 → 🎬 | 演出票 → 🎫
+   - 书籍快递 → 📚 | 服装快递 → 👕 | 通用快递 → 📦
 $noMatchSection
         """.trimIndent()
     }

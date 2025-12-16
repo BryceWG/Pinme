@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,6 +40,13 @@ abstract class AppDatabase : RoomDatabase() {
                 // 添加 isPreset 和 presetKey 字段
                 db.execSQL("ALTER TABLE `market_item` ADD COLUMN `isPreset` INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE `market_item` ADD COLUMN `presetKey` TEXT DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 给 extract 表添加 emoji 字段，存储 LLM 生成的 emoji
+                db.execSQL("ALTER TABLE `extract` ADD COLUMN `emoji` TEXT DEFAULT NULL")
             }
         }
     }

@@ -4,7 +4,8 @@ import org.json.JSONObject
 
 data class ExtractParsed(
     val title: String,
-    val content: String
+    val content: String,
+    val emoji: String? = null
 )
 
 object ExtractParsing {
@@ -14,8 +15,9 @@ object ExtractParsing {
         if (json != null) {
             val title = json.optString("title", "").trim()
             val content = json.optString("content", "").trim()
+            val emoji = json.optString("emoji", "").trim().takeIf { it.isNotBlank() }
             if (title.isNotBlank() && content.isNotBlank()) {
-                return ExtractParsed(title = title, content = content)
+                return ExtractParsed(title = title, content = content, emoji = emoji)
             }
         }
 

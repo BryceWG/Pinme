@@ -162,7 +162,8 @@ fun ExtractHome() {
                 }
             } else {
                 items(extracts.toList(), key = { it.id }) { item ->
-                    val emoji = marketItems.find { it.title == item.title }?.emoji
+                    // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
+                    val emoji = item.emoji ?: marketItems.find { it.title == item.title }?.emoji
                     ExtractCard(
                         item = item,
                         emoji = emoji,

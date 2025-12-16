@@ -61,7 +61,8 @@ data class WidgetExtractData(
 @Serializable
 data class WidgetExtractItem(
     val title: String,
-    val content: String
+    val content: String,
+    val emoji: String? = null
 )
 
 class PinMeWidget : GlanceAppWidget() {
@@ -132,7 +133,9 @@ class PinMeWidget : GlanceAppWidget() {
             } else {
                 data.items.take(3).forEachIndexed { index, item ->
                     if (index > 0) Spacer(modifier = GlanceModifier.height(8.dp))
-                    Text(text = item.title, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium))
+                    // 标题行：emoji + 标题
+                    val titleText = if (item.emoji != null) "${item.emoji} ${item.title}" else item.title
+                    Text(text = titleText, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium))
                     Spacer(modifier = GlanceModifier.height(2.dp))
                     Text(text = item.content, style = TextStyle(fontSize = 15.sp))
                 }
@@ -149,7 +152,7 @@ class PinMeWidget : GlanceAppWidget() {
             val dao = DatabaseProvider.dao()
             val extracts = dao.getLatestExtractsOnce(3)
 
-            val items = extracts.map { WidgetExtractItem(title = it.title, content = it.content) }
+            val items = extracts.map { WidgetExtractItem(title = it.title, content = it.content, emoji = it.emoji) }
             val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             val widgetData = WidgetExtractData(items = items, updateTime = updateTime)
             val json = jsonParser.encodeToString(WidgetExtractData.serializer(), widgetData)
