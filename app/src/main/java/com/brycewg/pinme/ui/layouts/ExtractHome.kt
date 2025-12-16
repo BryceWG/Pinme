@@ -3,7 +3,6 @@ package com.brycewg.pinme.ui.layouts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,8 +57,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.getSystemService
-import com.brycewg.pinme.Constants
-import com.brycewg.pinme.capture.CaptureActivity
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
@@ -145,34 +141,6 @@ fun ExtractHome() {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "点击控制中心磁贴截屏识别；也可以在这里手动触发一次。",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = {
-                    context.startActivity(Intent(context, CaptureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }) {
-                    Text("截屏识别")
-                }
-
-                Button(
-                    onClick = {
-                        Toast.makeText(context, "请在系统编辑控制中心后添加「PinMe」磁贴", Toast.LENGTH_LONG).show()
-                    }
-                ) {
-                    Text("如何添加磁贴")
-                }
-            }
-        }
-
         LazyColumn(
             state = listState,
             modifier = Modifier
