@@ -87,5 +87,17 @@ abstract class PinMeDao {
 
     @Query("SELECT * FROM market_item WHERE isPreset = 0 ORDER BY createdAtMillis DESC")
     abstract fun getCustomMarketItemsFlow(): Flow<List<MarketItemEntity>>
+
+    /**
+     * 在事务中插入预置市场项（如果不存在）
+     * 使用事务确保检查和插入的原子性，避免重复插入
+     */
+    @Transaction
+    open suspend fun insertPresetMarketItemIfNotExists(item: MarketItemEntity) {
+        val existing = getMarketItemByPresetKey(item.presetKey!!)
+        if (existing == null) {
+            insertMarketItem(item)
+        }
+    }
 }
 

@@ -7,9 +7,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 object DatabaseProvider {
     private val lock = Any()
+    private val insertMutex = Mutex()
+    private var presetItemsInserted = false
     lateinit var db: AppDatabase
         private set
 
@@ -25,17 +29,10 @@ object DatabaseProvider {
                 )
                     .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
                     .addCallback(object : RoomDatabase.Callback() {
-                        override fun onCreate(db: SupportSQLiteDatabase) {
-                            super.onCreate(db)
-                            // 新数据库创建时插入预置类型
-                            CoroutineScope(Dispatchers.IO).launch {
-                                insertPresetMarketItems()
-                            }
-                        }
-
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
                             // 每次打开数据库时检查并插入缺失的预置类型
+                            // 注意：onCreate 后必定会调用 onOpen，所以只需在 onOpen 中处理
                             CoroutineScope(Dispatchers.IO).launch {
                                 insertPresetMarketItems()
                             }
@@ -49,12 +46,15 @@ object DatabaseProvider {
     fun dao(): PinMeDao = db.pinMeDao()
 
     private suspend fun insertPresetMarketItems() {
-        val dao = db.pinMeDao()
-        PresetMarketTypes.ALL.forEach { preset ->
-            val existing = dao.getMarketItemByPresetKey(preset.presetKey!!)
-            if (existing == null) {
-                dao.insertMarketItem(preset)
+        // 使用 Mutex 确保只执行一次，避免并发问题
+        insertMutex.withLock {
+            if (presetItemsInserted) return
+            val dao = db.pinMeDao()
+            PresetMarketTypes.ALL.forEach { preset ->
+                // 使用带事务的方法确保检查和插入的原子性
+                dao.insertPresetMarketItemIfNotExists(preset)
             }
+            presetItemsInserted = true
         }
     }
 }
