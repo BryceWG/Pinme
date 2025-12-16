@@ -8,6 +8,7 @@
     <!-- 截屏前台服务权限 (Android 14+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- 定时取消通知权限 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
@@ -106,6 +107,11 @@
             android:name=".capture.ScreenCaptureService"
             android:exported="false"
             android:foregroundServiceType="mediaProjection" />
+
+        <service
+            android:name=".capture.RootCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".capture.AccessibilityCaptureService"

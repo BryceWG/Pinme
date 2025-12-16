@@ -13,6 +13,7 @@ object Constants {
 
     // 截图模式配置
     const val PREF_USE_ACCESSIBILITY_CAPTURE = "use_accessibility_capture"  // 是否使用无障碍截图模式
+    const val PREF_USE_ROOT_CAPTURE = "use_root_capture"                    // 是否使用 Root 截图模式（与无障碍互斥）
 
     // 隐私配置
     const val PREF_EXCLUDE_FROM_RECENTS = "exclude_from_recents"  // 是否从多任务管理中隐藏

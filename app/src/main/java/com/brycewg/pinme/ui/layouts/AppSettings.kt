@@ -13,6 +13,7 @@ import com.brycewg.pinme.BuildConfig
 import com.brycewg.pinme.R
 import com.brycewg.pinme.capture.AccessibilityCaptureService
 import com.brycewg.pinme.capture.CaptureActivity
+import com.brycewg.pinme.capture.RootCaptureService
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -92,6 +93,10 @@ fun AppSettings() {
     var useAccessibilityCapture by remember { mutableStateOf(false) }
     var accessibilityServiceEnabled by remember { mutableStateOf(false) }
     var showAccessibilityDialog by remember { mutableStateOf(false) }
+
+    // Root 截图模式相关状态（与无障碍互斥）
+    var useRootCapture by remember { mutableStateOf(false) }
+    var showRootDialog by remember { mutableStateOf(false) }
 
     // 隐藏多任务卡片
     var excludeFromRecents by remember { mutableStateOf(false) }
@@ -221,6 +226,14 @@ fun AppSettings() {
         // 加载无障碍截图模式设置
         useAccessibilityCapture = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+
+        // 加载 Root 截图模式设置（与无障碍互斥）
+        useRootCapture = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE) == "true"
+        if (useRootCapture && useAccessibilityCapture) {
+            useAccessibilityCapture = false
+            dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
+        }
+
         // 加载隐藏多任务卡片设置
         excludeFromRecents = dao.getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
     }
@@ -490,6 +503,80 @@ fun AppSettings() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                Text("Root 截图", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "通过 su 静默截图（需要设备已 root）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = useRootCapture,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        useRootCapture = true
+                        useAccessibilityCapture = false
+                        showRootDialog = true
+                            scope.launch {
+                                dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "true")
+                                dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
+                            }
+                        } else {
+                            useRootCapture = false
+                            scope.launch {
+                                dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "false")
+                        }
+                    }
+                }
+            )
+        }
+
+        if (useRootCapture) {
+            if (RootCaptureService.isSuAvailable()) {
+                Text(
+                    text = "已检测到 su，首次使用会弹出 Root 授权",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Text(
+                    text = "未检测到 su，将自动使用传统截图方式",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        if (showRootDialog) {
+            AlertDialog(
+                onDismissRequest = { showRootDialog = false },
+                title = { Text("需要 Root 权限") },
+                text = {
+                    Text("Root 截图模式需要设备已 root（如 Magisk）。首次触发截图时会弹出超级用户授权，请允许 PinMe 获取 root 权限。")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showRootDialog = false
+                        }
+                    ) {
+                        Text("知道了")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRootDialog = false }) { Text("取消") }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text("无障碍截图模式", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     "开启后静默截图，无需每次授权",
@@ -508,8 +595,11 @@ fun AppSettings() {
                             showAccessibilityDialog = true
                         } else {
                             useAccessibilityCapture = true
+                            useRootCapture = false
+                            showRootDialog = false
                             scope.launch {
                                 dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "true")
+                                dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "false")
                             }
                         }
                     } else {
@@ -632,7 +722,7 @@ fun AppSettings() {
         )
 
         Text(
-            text = "提示：首次点击磁贴需要授予截屏权限。识别结果会写入历史记录；下一步会同步到 Flyme 实况通知与桌面插件。",
+            text = "提示：若未开启无障碍/Root 截图模式，首次点击磁贴需要授予截屏权限。识别结果会写入历史记录；下一步会同步到 Flyme 实况通知与桌面插件。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

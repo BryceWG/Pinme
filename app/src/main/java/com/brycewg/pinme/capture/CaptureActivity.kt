@@ -35,16 +35,32 @@ class CaptureActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 检查是否开启了无障碍截图模式
-        val useAccessibility = runBlocking {
+        // 检查截图模式偏好
+        val (useRootCapture, useAccessibilityCapture) = runBlocking {
             if (!DatabaseProvider.isInitialized()) {
                 DatabaseProvider.init(this@CaptureActivity)
             }
-            DatabaseProvider.dao().getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
+            val dao = DatabaseProvider.dao()
+            val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE) == "true"
+            val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
+            rootEnabled to accessibility
         }
 
-        // 如果开启了无障碍模式且服务已启用，使用无障碍截图
-        if (useAccessibility && AccessibilityCaptureService.isServiceEnabled(this)) {
+        // Root 截图（与无障碍互斥，优先级更高）
+        if (useRootCapture) {
+            if (RootCaptureService.isSuAvailable()) {
+                RootCaptureService.start(this)
+                finishAndRemoveTask()
+                @Suppress("DEPRECATION")
+                overridePendingTransition(0, 0)
+                return
+            } else {
+                Toast.makeText(this, "未检测到 Root，将使用传统截图方式", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // 无障碍截图
+        if (!useRootCapture && useAccessibilityCapture && AccessibilityCaptureService.isServiceEnabled(this)) {
             AccessibilityCaptureService.requestCapture()
             finishAndRemoveTask()
             @Suppress("DEPRECATION")

@@ -303,13 +303,18 @@ class MainActivity : ComponentActivity() {
 
     private fun checkAccessibilityServiceIfNeeded() {
         lifecycleScope.launch {
-            val useAccessibilityCapture = withContext(Dispatchers.IO) {
+            val (useRootCapture, useAccessibilityCapture) = withContext(Dispatchers.IO) {
                 val dao = DatabaseProvider.dao()
-                dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE)?.toBoolean() ?: false
+                val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE)?.toBoolean() ?: false
+                val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE)?.toBoolean() ?: false
+                rootEnabled to accessibility
             }
 
             // 如果开启了无障碍截图模式，但无障碍服务未启用，则跳转到设置页面
-            if (useAccessibilityCapture && !AccessibilityCaptureService.isServiceEnabled(this@MainActivity)) {
+            if (!useRootCapture &&
+                useAccessibilityCapture &&
+                !AccessibilityCaptureService.isServiceEnabled(this@MainActivity)
+            ) {
                 AccessibilityCaptureService.openAccessibilitySettings(this@MainActivity)
             }
         }
