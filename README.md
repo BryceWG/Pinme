@@ -28,3 +28,8 @@
 
 - 感谢 [StarSchedule](https://github.com/lightStarrr/starSchedule) 提供的 Flyme 实况通知调用参考。
 - 感谢群友 Ruyue 提供的实况通知代码支持。
+
+## 赞赏
+
+开源项目开发不易，喜欢我的项目可以请我喝一杯咖啡~
+<img width="1213" height="1213" alt="mm_reward_qrcode_1765881183724" src="https://github.com/user-attachments/assets/6b9ba58a-d0c0-4cd9-85a8-0aabc70d9697" />
