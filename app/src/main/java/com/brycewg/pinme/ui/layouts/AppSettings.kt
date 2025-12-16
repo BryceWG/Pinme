@@ -17,11 +17,10 @@ import com.brycewg.pinme.capture.RootCaptureService
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -35,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -297,301 +297,226 @@ fun AppSettings() {
             }
     }
 
+    val textFieldShape = RoundedCornerShape(16.dp)
+
+    // Provider 选择对话框（放在 Column 外部）
+    if (showProviderDialog) {
+        AlertDialog(
+            onDismissRequest = { showProviderDialog = false },
+            title = { Text("选择 LLM 供应商") },
+            text = {
+                Column(Modifier.selectableGroup()) {
+                    LlmProvider.entries.forEach { provider ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = (selectedProvider == provider),
+                                    onClick = {
+                                        isHydratingProviderPrefs = true
+                                        selectedProvider = provider
+                                        scope.launch {
+                                            dao.setPreference(
+                                                Constants.PREF_LLM_PROVIDER,
+                                                provider.toStoredValue()
+                                            )
+                                        }
+                                        showProviderDialog = false
+                                    },
+                                    role = Role.RadioButton
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = (selectedProvider == provider),
+                                onClick = null
+                            )
+                            Text(
+                                text = provider.displayName,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showProviderDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val textFieldShape = RoundedCornerShape(16.dp)
+        // ==================== LLM 配置 ====================
+        SettingsSection(title = "LLM 配置") {
+            OutlinedButton(
+                onClick = { showProviderDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(selectedProvider.displayName)
+            }
 
-        Text("LLM 供应商", style = MaterialTheme.typography.titleMedium)
+            if (selectedProvider == LlmProvider.CUSTOM) {
+                OutlinedTextField(
+                    value = customBaseUrl,
+                    onValueChange = { customBaseUrl = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Base URL") },
+                    supportingText = { Text("输入到 /v1 即可，例如 https://api.example.com/v1") },
+                    shape = textFieldShape,
+                    singleLine = true
+                )
+            }
 
-        OutlinedButton(
-            onClick = { showProviderDialog = true },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(selectedProvider.displayName)
-        }
-
-        if (showProviderDialog) {
-            AlertDialog(
-                onDismissRequest = { showProviderDialog = false },
-                title = { Text("选择 LLM 供应商") },
-                text = {
-                    Column(Modifier.selectableGroup()) {
-                        LlmProvider.entries.forEach { provider ->
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .selectable(
-                                        selected = (selectedProvider == provider),
-                                        onClick = {
-                                            isHydratingProviderPrefs = true
-                                            selectedProvider = provider
-                                            scope.launch {
-                                                dao.setPreference(
-                                                    Constants.PREF_LLM_PROVIDER,
-                                                    provider.toStoredValue()
-                                                )
-                                            }
-                                            showProviderDialog = false
-                                        },
-                                        role = Role.RadioButton
-                                    )
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = (selectedProvider == provider),
-                                    onClick = null
-                                )
-                                Text(
-                                    text = provider.displayName,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showProviderDialog = false }) {
-                        Text("取消")
-                    }
-                }
-            )
-        }
-
-        if (selectedProvider == LlmProvider.CUSTOM) {
             OutlinedTextField(
-                value = customBaseUrl,
-                onValueChange = { customBaseUrl = it },
+                value = apiKey,
+                onValueChange = { apiKey = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("Base URL") },
-                supportingText = { Text("输入到 /v1 即可，例如 https://api.example.com/v1") },
+                label = { Text("API Key") },
                 shape = textFieldShape,
                 singleLine = true
             )
-        }
 
-        OutlinedTextField(
-            value = apiKey,
-            onValueChange = { apiKey = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("API Key") },
-            shape = textFieldShape,
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = model,
-            onValueChange = { model = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("模型 ID") },
-            supportingText = {
-                when (selectedProvider) {
-                    LlmProvider.ZHIPU -> Text("例如 glm-4v-flash、glm-4v-plus")
-                    LlmProvider.SILICONFLOW -> Text("例如 Qwen/Qwen2.5-VL-72B-Instruct")
-                    LlmProvider.CUSTOM -> Text("根据你的服务填写模型名称")
-                }
-            },
-            shape = textFieldShape,
-            singleLine = true
-        )
-
-        Text(
-            text = "温度: %.2f".format(temperature),
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Slider(
-            value = temperature,
-            onValueChange = { temperature = it },
-            valueRange = 0f..2f,
-            steps = 19,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = "较低温度输出更确定，较高温度输出更多样",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Button(
-            onClick = {
-                scope.launch {
-                    isTesting = true
-                    testResult = null
-                    try {
-                        // 测试前先保存当前配置
-                        saveCurrentPrefsImmediately()
-
-                        val baseUrl = when (selectedProvider) {
-                            LlmProvider.CUSTOM -> customBaseUrl.trim().takeIf { it.isNotBlank() }
-                                ?: throw IllegalStateException("请填写 Base URL")
-                            else -> selectedProvider.baseUrl
-                        }
-                        val testModel = model.trim().takeIf { it.isNotBlank() }
-                            ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
-                            ?: throw IllegalStateException("请填写模型 ID")
-
-                        val response = VllmClient().testConnection(
-                            baseUrl = baseUrl,
-                            apiKey = apiKey.takeIf { it.isNotBlank() },
-                            model = testModel
-                        )
-                        testResult = "连接成功: $response"
-                        Toast.makeText(context, "测试成功", Toast.LENGTH_SHORT).show()
-                    } catch (e: Exception) {
-                        testResult = "连接失败: ${e.message}"
-                        Toast.makeText(context, "测试失败", Toast.LENGTH_SHORT).show()
-                    } finally {
-                        isTesting = false
+            OutlinedTextField(
+                value = model,
+                onValueChange = { model = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("模型 ID") },
+                supportingText = {
+                    when (selectedProvider) {
+                        LlmProvider.ZHIPU -> Text("例如 glm-4v-flash、glm-4v-plus")
+                        LlmProvider.SILICONFLOW -> Text("例如 Qwen/Qwen2.5-VL-72B-Instruct")
+                        LlmProvider.CUSTOM -> Text("根据你的服务填写模型名称")
                     }
-                }
-            },
-            enabled = !isTesting,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isTesting) "测试中…" else "测试连接")
-        }
-
-        if (testResult != null) {
-            Text(
-                text = testResult!!,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (testResult!!.startsWith("连接成功"))
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.error
+                },
+                shape = textFieldShape,
+                singleLine = true
             )
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("通知测试", style = MaterialTheme.typography.titleMedium)
-
-        Button(
-            onClick = {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                    if (!granted) {
-                        postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        return@Button
-                    }
-                }
-                sendTestLiveNotification()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("发送测试实况通知")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("截图模式", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Root 截图", style = MaterialTheme.typography.bodyLarge)
+            Column {
                 Text(
-                    "通过 su 静默截图（需要设备已 root）",
+                    text = "温度: %.2f".format(temperature),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = temperature,
+                    onValueChange = { temperature = it },
+                    valueRange = 0f..2f,
+                    steps = 19,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "较低温度输出更确定，较高温度输出更多样",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Switch(
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        isTesting = true
+                        testResult = null
+                        try {
+                            saveCurrentPrefsImmediately()
+
+                            val baseUrl = when (selectedProvider) {
+                                LlmProvider.CUSTOM -> customBaseUrl.trim().takeIf { it.isNotBlank() }
+                                    ?: throw IllegalStateException("请填写 Base URL")
+                                else -> selectedProvider.baseUrl
+                            }
+                            val testModel = model.trim().takeIf { it.isNotBlank() }
+                                ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
+                                ?: throw IllegalStateException("请填写模型 ID")
+
+                            val response = VllmClient().testConnection(
+                                baseUrl = baseUrl,
+                                apiKey = apiKey.takeIf { it.isNotBlank() },
+                                model = testModel
+                            )
+                            testResult = "连接成功: $response"
+                            Toast.makeText(context, "测试成功", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            testResult = "连接失败: ${e.message}"
+                            Toast.makeText(context, "测试失败", Toast.LENGTH_SHORT).show()
+                        } finally {
+                            isTesting = false
+                        }
+                    }
+                },
+                enabled = !isTesting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isTesting) "测试中…" else "测试连接")
+            }
+
+            if (testResult != null) {
+                Text(
+                    text = testResult!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (testResult!!.startsWith("连接成功"))
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
+                )
+            }
+        }
+
+        // ==================== 截图模式 ====================
+        SettingsSection(title = "截图模式") {
+            SettingsSwitchItem(
+                title = "Root 截图",
+                subtitle = "通过 su 静默截图（需要设备已 root）",
                 checked = useRootCapture,
                 onCheckedChange = { enabled ->
                     if (enabled) {
                         useRootCapture = true
                         useAccessibilityCapture = false
                         showRootDialog = true
-                            scope.launch {
-                                dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "true")
-                                dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
-                            }
-                        } else {
-                            useRootCapture = false
-                            scope.launch {
-                                dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "false")
+                        scope.launch {
+                            dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "true")
+                            dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
+                        }
+                    } else {
+                        useRootCapture = false
+                        scope.launch {
+                            dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "false")
                         }
                     }
                 }
             )
-        }
 
-        if (useRootCapture) {
-            if (RootCaptureService.isSuAvailable()) {
+            if (useRootCapture) {
                 Text(
-                    text = "已检测到 su，首次使用会弹出 Root 授权",
+                    text = if (RootCaptureService.isSuAvailable())
+                        "已检测到 su，首次使用会弹出 Root 授权"
+                    else
+                        "未检测到 su，将自动使用传统截图方式",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            } else {
-                Text(
-                    text = "未检测到 su，将自动使用传统截图方式",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = if (RootCaptureService.isSuAvailable())
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.error
                 )
             }
-        }
 
-        if (showRootDialog) {
-            AlertDialog(
-                onDismissRequest = { showRootDialog = false },
-                title = { Text("需要 Root 权限") },
-                text = {
-                    Text("Root 截图模式需要设备已 root（如 Magisk）。首次触发截图时会弹出超级用户授权，请允许 PinMe 获取 root 权限。")
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showRootDialog = false
-                        }
-                    ) {
-                        Text("知道了")
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showRootDialog = false }) { Text("取消") }
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("无障碍截图模式", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "开启后静默截图，无需每次授权",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Switch(
+            SettingsSwitchItem(
+                title = "无障碍截图模式",
+                subtitle = "开启后静默截图，无需每次授权",
                 checked = useAccessibilityCapture,
                 onCheckedChange = { enabled ->
                     if (enabled) {
-                        // 检查无障碍服务是否已开启
                         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
                         if (!accessibilityServiceEnabled) {
-                            // 提示用户去开启无障碍权限
                             showAccessibilityDialog = true
                         } else {
                             useAccessibilityCapture = true
@@ -610,31 +535,54 @@ fun AppSettings() {
                     }
                 }
             )
+
+            if (useAccessibilityCapture) {
+                val currentServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+                if (!currentServiceEnabled) {
+                    Text(
+                        text = "无障碍服务未开启，将自动使用传统截图方式",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    OutlinedButton(
+                        onClick = { AccessibilityCaptureService.openAccessibilitySettings(context) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("前往无障碍设置")
+                    }
+                } else {
+                    Text(
+                        text = "无障碍服务已开启，可静默截图",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Text(
+                text = "提示：若未开启无障碍/Root 截图模式，首次点击磁贴需要授予截屏权限。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
-        // 无障碍服务状态提示
-        if (useAccessibilityCapture) {
-            // 重新检查服务状态
-            val currentServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
-            if (!currentServiceEnabled) {
-                Text(
-                    text = "无障碍服务未开启，将自动使用传统截图方式",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-                OutlinedButton(
-                    onClick = { AccessibilityCaptureService.openAccessibilitySettings(context) },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("前往无障碍设置")
+        // Root 权限引导对话框
+        if (showRootDialog) {
+            AlertDialog(
+                onDismissRequest = { showRootDialog = false },
+                title = { Text("需要 Root 权限") },
+                text = {
+                    Text("Root 截图模式需要设备已 root（如 Magisk）。首次触发截图时会弹出超级用户授权，请允许 PinMe 获取 root 权限。")
+                },
+                confirmButton = {
+                    TextButton(onClick = { showRootDialog = false }) {
+                        Text("知道了")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRootDialog = false }) { Text("取消") }
                 }
-            } else {
-                Text(
-                    text = "无障碍服务已开启，可静默截图",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+            )
         }
 
         // 无障碍权限引导对话框
@@ -663,88 +611,85 @@ fun AppSettings() {
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // ==================== 通知与快捷方式 ====================
+        SettingsSection(title = "通知与快捷方式") {
+            Button(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.POST_NOTIFICATIONS
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (!granted) {
+                            postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            return@Button
+                        }
+                    }
+                    sendTestLiveNotification()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("发送测试实况通知")
+            }
 
-        Text("快捷方式", style = MaterialTheme.typography.titleMedium)
-
-        Button(
-            onClick = {
-                if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
-                    Toast.makeText(context, "当前启动器不支持创建快捷方式", Toast.LENGTH_SHORT).show()
-                    return@Button
-                }
-                val shortcutIntent = Intent(context, CaptureActivity::class.java).apply {
-                    action = Intent.ACTION_VIEW
-                }
-                val shortcutInfo = ShortcutInfoCompat.Builder(context, "quick_capture_shortcut")
-                    .setShortLabel("截图识别")
-                    .setLongLabel("PinMe 截图识别")
-                    .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
-                    .setIntent(shortcutIntent)
-                    .build()
-                val success = ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)
-                if (success) {
-                    Toast.makeText(context, "请在桌面上确认添加快捷方式", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "创建快捷方式失败", Toast.LENGTH_SHORT).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("添加截图识别快捷方式到桌面")
+            OutlinedButton(
+                onClick = {
+                    if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) {
+                        Toast.makeText(context, "当前启动器不支持创建快捷方式", Toast.LENGTH_SHORT).show()
+                        return@OutlinedButton
+                    }
+                    val shortcutIntent = Intent(context, CaptureActivity::class.java).apply {
+                        action = Intent.ACTION_VIEW
+                    }
+                    val shortcutInfo = ShortcutInfoCompat.Builder(context, "quick_capture_shortcut")
+                        .setShortLabel("截图识别")
+                        .setLongLabel("PinMe 截图识别")
+                        .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
+                        .setIntent(shortcutIntent)
+                        .build()
+                    val success = ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)
+                    if (success) {
+                        Toast.makeText(context, "请在桌面上确认添加快捷方式", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "创建快捷方式失败", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("添加截图识别快捷方式到桌面")
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("历史记录", style = MaterialTheme.typography.titleMedium)
-
-        Text(
-            text = "最大历史记录数量: $maxHistoryCount",
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Slider(
-            value = maxHistoryCount.toFloat(),
-            onValueChange = { newValue ->
-                maxHistoryCount = newValue.toInt()
-                scope.launch {
-                    dao.setPreference(Constants.PREF_MAX_HISTORY_COUNT, newValue.toInt().toString())
-                    dao.trimExtractsToLimit(newValue.toInt())
-                }
-            },
-            valueRange = 1f..20f,
-            steps = 18,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Text(
-            text = "超出限制的旧记录会被自动删除",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = "提示：若未开启无障碍/Root 截图模式，首次点击磁贴需要授予截屏权限。识别结果会写入历史记录；下一步会同步到 Flyme 实况通知与桌面插件。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text("其他", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("隐藏多任务卡片", style = MaterialTheme.typography.bodyLarge)
+        // ==================== 通用设置 ====================
+        SettingsSection(title = "通用设置") {
+            Column {
                 Text(
-                    "从最近任务列表中隐藏本应用",
+                    text = "最大历史记录数量: $maxHistoryCount",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Slider(
+                    value = maxHistoryCount.toFloat(),
+                    onValueChange = { newValue ->
+                        maxHistoryCount = newValue.toInt()
+                        scope.launch {
+                            dao.setPreference(Constants.PREF_MAX_HISTORY_COUNT, newValue.toInt().toString())
+                            dao.trimExtractsToLimit(newValue.toInt())
+                        }
+                    },
+                    valueRange = 1f..20f,
+                    steps = 18,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "超出限制的旧记录会被自动删除",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Switch(
+
+            SettingsSwitchItem(
+                title = "隐藏多任务卡片",
+                subtitle = "从最近任务列表中隐藏本应用",
                 checked = excludeFromRecents,
                 onCheckedChange = { enabled ->
                     excludeFromRecents = enabled
@@ -753,41 +698,104 @@ fun AppSettings() {
                     }
                 }
             )
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("关于", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("版本", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = BuildConfig.VERSION_NAME,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            SettingsInfoItem(
+                title = "版本",
+                value = BuildConfig.VERSION_NAME
             )
-        }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
+            SettingsInfoItem(
+                title = "项目地址",
+                value = "GitHub",
+                onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/BryceWG/Pinme"))
                     context.startActivity(intent)
-                },
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("项目地址", style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = "GitHub",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
+                }
             )
         }
+    }
+}
+
+/**
+ * 设置分组容器
+ */
+@Composable
+private fun SettingsSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content
+            )
+        }
+    }
+}
+
+/**
+ * Switch 开关设置项
+ */
+@Composable
+private fun SettingsSwitchItem(
+    title: String,
+    subtitle: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * 只读信息展示项
+ */
+@Composable
+private fun SettingsInfoItem(
+    title: String,
+    value: String,
+    onClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (onClick != null) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
