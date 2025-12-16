@@ -137,8 +137,8 @@ $typesList
         val examplesSection = """
 {"title":"取餐码","content":"A128","emoji":"☕"}
 {"title":"取餐码","content":"B032","emoji":"🍔"}
-{"title":"取件码","content":"5-8-2-1","emoji":"📦"}
-{"title":"火车票","content":"G1234 07车 12F","emoji":"🚄"}
+{"title":"取件码","content":"5-8-2-1 菜鸟驿站","emoji":"📦"}
+{"title":"火车票","content":"14:30 G1234 07车12F B2检票口","emoji":"🚄"}
 {"title":"验证码","content":"847291","emoji":"🔑"}"""
 
         // 无匹配类型的处理说明

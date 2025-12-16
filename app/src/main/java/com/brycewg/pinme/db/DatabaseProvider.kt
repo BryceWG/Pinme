@@ -65,7 +65,7 @@ object DatabaseProvider {
 object PresetMarketTypes {
     val PICKUP_CODE = MarketItemEntity(
         title = "取件码",
-        contentDesc = "快递取件码",
+        contentDesc = "取件码+驿站/快递柜名称（如：5-8-2-1 菜鸟驿站）",
         emoji = "📦",
         capsuleColor = "#FFC107",
         durationMinutes = 30,
@@ -87,7 +87,7 @@ object PresetMarketTypes {
 
     val TRAIN_TICKET = MarketItemEntity(
         title = "火车票",
-        contentDesc = "车次、座位、检票口信息",
+        contentDesc = "出发时间+车次+座位+检票口（如：14:30 G1234 07车12F B2检票口）",
         emoji = "🚄",
         capsuleColor = "#2196F3",
         durationMinutes = 120,
