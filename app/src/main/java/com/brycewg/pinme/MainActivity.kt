@@ -250,10 +250,30 @@ class MainActivity : ComponentActivity() {
                     DatabaseProvider.dao().insertExtract(entity)
                 }
 
+                // 获取市场类型配置用于通知
+                val marketItem = withContext(Dispatchers.IO) {
+                    DatabaseProvider.dao().getEnabledMarketItems()
+                        .find { it.title == title }
+                }
+
+                // 显示通知
+                val notificationManager = UnifiedNotificationManager(this@MainActivity)
+                val timeText = android.text.format.DateFormat.format("HH:mm", entity.createdAtMillis).toString()
+                notificationManager.showExtractNotification(
+                    title = title,
+                    content = content,
+                    timeText = timeText,
+                    capsuleColor = marketItem?.capsuleColor,
+                    emoji = emoji ?: marketItem?.emoji,
+                    extractId = id
+                )
+
                 // 更新小组件
                 PinMeWidget.updateWidgetContent(this@MainActivity)
 
-                Toast.makeText(this@MainActivity, "已添加记录", Toast.LENGTH_SHORT).show()
+                val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
+                val toastText = if (isLive) "已添加并挂到实况通知" else "已添加并发送通知"
+                Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(
                     this@MainActivity,

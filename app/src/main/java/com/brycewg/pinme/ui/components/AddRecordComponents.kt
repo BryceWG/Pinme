@@ -13,16 +13,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CameraAlt
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +33,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
@@ -42,14 +46,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.MarketItemEntity
+import com.brycewg.pinme.extract.ExtractWorkflow
+import kotlinx.coroutines.launch
 
 /**
  * 添加记录的操作回调
@@ -185,6 +193,8 @@ fun ManualAddDialog(
     onDismiss: () -> Unit,
     onConfirm: (title: String, content: String, emoji: String?) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val dao = DatabaseProvider.dao()
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
 
@@ -197,6 +207,11 @@ fun ManualAddDialog(
     var content by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf("") }
 
+    // 文本提取相关状态
+    var extractInput by remember { mutableStateOf("") }
+    var isExtracting by remember { mutableStateOf(false) }
+    var extractError by remember { mutableStateOf<String?>(null) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("添加记录") },
@@ -205,7 +220,7 @@ fun ManualAddDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // 预设选择器
+                // 模板选择器（必选）
                 ExposedDropdownMenuBox(
                     expanded = presetExpanded,
                     onExpandedChange = { presetExpanded = it }
@@ -214,8 +229,8 @@ fun ManualAddDialog(
                         value = selectedPreset?.let { "${it.emoji} ${it.title}" } ?: "",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("快速填充（可选）") },
-                        placeholder = { Text("选择预设类型") },
+                        label = { Text("模板") },
+                        placeholder = { Text("请选择模板") },
                         trailingIcon = {
                             ExposedDropdownMenuDefaults.TrailingIcon(expanded = presetExpanded)
                         },
@@ -285,12 +300,78 @@ fun ManualAddDialog(
                     singleLine = true,
                     supportingText = { Text("留空使用默认图标") }
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // 智能提取输入框
+                OutlinedTextField(
+                    value = extractInput,
+                    onValueChange = {
+                        extractInput = it
+                        extractError = null
+                    },
+                    label = { Text("智能提取（可选）") },
+                    placeholder = { Text("粘贴文本，AI 自动识别关键信息") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    minLines = 2,
+                    maxLines = 4,
+                    trailingIcon = {
+                        if (isExtracting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            IconButton(
+                                onClick = {
+                                    if (extractInput.isNotBlank()) {
+                                        scope.launch {
+                                            isExtracting = true
+                                            extractError = null
+                                            try {
+                                                val result = ExtractWorkflow(context).extractFromText(extractInput)
+                                                title = result.title
+                                                content = result.content
+                                                emoji = result.emoji ?: ""
+                                                // 清空输入框表示已处理
+                                                extractInput = ""
+                                            } catch (e: Exception) {
+                                                extractError = e.message ?: "提取失败"
+                                            } finally {
+                                                isExtracting = false
+                                            }
+                                        }
+                                    }
+                                },
+                                enabled = extractInput.isNotBlank()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.Send,
+                                    contentDescription = "提取",
+                                    tint = if (extractInput.isNotBlank())
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    isError = extractError != null,
+                    supportingText = {
+                        if (extractError != null) {
+                            Text(extractError!!, color = MaterialTheme.colorScheme.error)
+                        } else {
+                            Text("输入后点击发送按钮自动填充上方字段")
+                        }
+                    }
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isNotBlank() && content.isNotBlank()) {
+                    if (selectedPreset != null && title.isNotBlank() && content.isNotBlank()) {
                         onConfirm(
                             title.trim(),
                             content.trim(),
@@ -298,7 +379,7 @@ fun ManualAddDialog(
                         )
                     }
                 },
-                enabled = title.isNotBlank() && content.isNotBlank()
+                enabled = selectedPreset != null && title.isNotBlank() && content.isNotBlank() && !isExtracting
             ) {
                 Text("添加")
             }
