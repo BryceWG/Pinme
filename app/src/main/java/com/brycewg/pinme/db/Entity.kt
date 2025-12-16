@@ -15,6 +15,7 @@ data class ExtractEntity(
     val title: String,
     val content: String,
     val emoji: String? = null,        // LLM 生成的 emoji，更精准地表达内容
+    val qrCodeBase64: String? = null, // 二维码图片的 Base64 编码（JPEG 格式）
     val source: String = "screen",
     val rawModelOutput: String = "",
     val createdAtMillis: Long

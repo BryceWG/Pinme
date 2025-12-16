@@ -28,6 +28,9 @@ abstract class PinMeDao {
     @Insert
     abstract suspend fun insertExtract(extract: ExtractEntity): Long
 
+    @Query("UPDATE extract SET qrCodeBase64 = :qrCodeBase64 WHERE id = :id")
+    abstract suspend fun updateExtractQrCode(id: Long, qrCodeBase64: String)
+
     @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit")
     abstract fun getLatestExtractsFlow(limit: Int): Flow<List<ExtractEntity>>
 

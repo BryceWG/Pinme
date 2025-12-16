@@ -19,6 +19,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Base64
 import android.util.Log
 import android.widget.Toast
 import com.brycewg.pinme.R
@@ -27,6 +28,7 @@ import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.qrcode.QrCodeDetector
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -133,6 +135,15 @@ class ScreenCaptureService : Service() {
                     val qrDeferred = async { QrCodeDetector.detect(bitmap) }
                     val extractDeferred = async { ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap) }
                     qrDeferred.await() to extractDeferred.await()
+                }
+
+                // 如果检测到二维码，保存到数据库
+                if (qrResult != null) {
+                    val qrBase64 = qrResult.croppedBitmap.toJpegBase64()
+                    if (!DatabaseProvider.isInitialized()) {
+                        DatabaseProvider.init(this)
+                    }
+                    DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
                 }
 
                 val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
@@ -328,5 +339,15 @@ class ScreenCaptureService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         serviceScope.cancel()
+    }
+
+    /**
+     * 将 Bitmap 转换为 JPEG 格式的 Base64 字符串
+     */
+    private fun Bitmap.toJpegBase64(): String {
+        val stream = ByteArrayOutputStream()
+        compress(Bitmap.CompressFormat.JPEG, 85, stream)
+        val bytes = stream.toByteArray()
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
     }
 }

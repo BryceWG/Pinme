@@ -3,7 +3,9 @@ package com.brycewg.pinme.ui.layouts
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.text.format.DateFormat
+import android.util.Base64
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -286,7 +288,22 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, onDelete: () -> Uni
                         IconButton(onClick = {
                             val notificationManager = UnifiedNotificationManager(context)
                             val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
-                            notificationManager.showExtractNotification(item.title, item.content, pinTimeText, emoji = emoji)
+                            // 解码二维码图片（如果有）
+                            val qrBitmap = item.qrCodeBase64?.let { base64 ->
+                                try {
+                                    val bytes = Base64.decode(base64, Base64.NO_WRAP)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
+                            notificationManager.showExtractNotification(
+                                title = item.title,
+                                content = item.content,
+                                timeText = pinTimeText,
+                                emoji = emoji,
+                                qrBitmap = qrBitmap
+                            )
                             val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
                             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
                         }) {

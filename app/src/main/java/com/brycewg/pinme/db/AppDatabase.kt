@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,6 +47,13 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 给 extract 表添加 emoji 字段，存储 LLM 生成的 emoji
                 db.execSQL("ALTER TABLE `extract` ADD COLUMN `emoji` TEXT DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 给 extract 表添加 qrCodeBase64 字段，存储检测到的二维码图片
+                db.execSQL("ALTER TABLE `extract` ADD COLUMN `qrCodeBase64` TEXT DEFAULT NULL")
             }
         }
     }
