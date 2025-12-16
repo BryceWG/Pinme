@@ -163,7 +163,8 @@ class ScreenCaptureService : Service() {
                         timeText = timeText,
                         capsuleColor = capsuleColor,
                         emoji = emoji,
-                        qrBitmap = qrResult?.croppedBitmap
+                        qrBitmap = qrResult?.croppedBitmap,
+                        extractId = extract.id
                     )
 
                 // 设置定时取消通知

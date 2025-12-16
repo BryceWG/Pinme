@@ -170,6 +170,8 @@ fun ExtractHome() {
                         item = item,
                         emoji = emoji,
                         onDelete = {
+                            // 仅当删除的记录正在显示为通知时才取消
+                            UnifiedNotificationManager(context).cancelExtractNotificationIfMatches(item.id)
                             scope.launch {
                                 dao.deleteExtractById(item.id)
                             }
@@ -302,7 +304,8 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, onDelete: () -> Uni
                                 content = item.content,
                                 timeText = pinTimeText,
                                 emoji = emoji,
-                                qrBitmap = qrBitmap
+                                qrBitmap = qrBitmap,
+                                extractId = item.id
                             )
                             val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
                             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()

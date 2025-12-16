@@ -41,6 +41,15 @@ class UnifiedNotificationManager(private val context: Context) {
 
         /** 默认胶囊颜色（橙色） */
         const val DEFAULT_CAPSULE_COLOR = "#FF9800"
+
+        /** 当前显示在通知上的记录 ID，用于判断删除时是否需要取消通知 */
+        @Volatile
+        var currentNotificationExtractId: Long? = null
+            private set
+
+        fun setCurrentExtractId(id: Long?) {
+            currentNotificationExtractId = id
+        }
     }
 
     init {
@@ -49,12 +58,26 @@ class UnifiedNotificationManager(private val context: Context) {
 
     fun cancelExtractNotification() {
         notificationManager.cancel(EXTRACT_NOTIFICATION_ID)
+        setCurrentExtractId(null)
+    }
+
+    /**
+     * 仅当传入的 ID 与当前通知对应的记录 ID 匹配时才取消通知
+     * @return true 如果通知被取消，false 如果 ID 不匹配
+     */
+    fun cancelExtractNotificationIfMatches(extractId: Long): Boolean {
+        if (currentNotificationExtractId == extractId) {
+            cancelExtractNotification()
+            return true
+        }
+        return false
     }
 
     /**
      * @param capsuleColor 胶囊颜色，如 "#FFC107"。传 null 使用默认橙色
      * @param emoji 实况通知卡片右侧显示的 emoji，如 "📦"。传 null 使用默认星星
      * @param qrBitmap 二维码图片，如果检测到二维码则传入，替代 emoji 显示
+     * @param extractId 对应的数据库记录 ID，用于在删除记录时判断是否需要取消通知
      */
     fun showExtractNotification(
         title: String,
@@ -62,8 +85,10 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String = "",
         capsuleColor: String? = null,
         emoji: String? = null,
-        qrBitmap: Bitmap? = null
+        qrBitmap: Bitmap? = null,
+        extractId: Long? = null
     ) {
+        setCurrentExtractId(extractId)
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
                 title = title,
