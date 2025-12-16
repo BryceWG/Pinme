@@ -257,8 +257,8 @@ class UnifiedNotificationManager(private val context: Context) {
             putInt("notification.live.capsuleStatus", 1)
             putInt("notification.live.capsuleType", 3)
             putString("notification.live.capsuleContent", content)
-
-            val drawable = ContextCompat.getDrawable(context, R.drawable.ic_notification)?.mutate()
+            // 使用圆环图标
+            val drawable = ContextCompat.getDrawable(context, R.drawable.ic_capsule_ring)?.mutate()
             if (drawable != null) {
                 drawable.setTint(contentColor.toArgb())
                 putParcelable("notification.live.capsuleIcon", Icon.createWithBitmap(drawable.toBitmap()))
