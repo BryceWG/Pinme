@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -306,6 +307,7 @@ class UnifiedNotificationManager(private val context: Context) {
 
         // 计算文本样式（字体大小和行数）
         val (textSize, maxLines) = calculateTextStyle(content)
+        val useInlineTime = maxLines > 1
 
         // 根据是否有二维码选择不同的布局
         val remoteViews = if (qrBitmap != null) {
@@ -313,6 +315,9 @@ class UnifiedNotificationManager(private val context: Context) {
                 setTextViewText(R.id.live_title, title)
                 setTextViewText(R.id.location, content)
                 setTextViewText(R.id.live_time, timeText)
+                setTextViewText(R.id.live_time_inline, timeText)
+                setViewVisibility(R.id.live_time, if (useInlineTime) View.GONE else View.VISIBLE)
+                setViewVisibility(R.id.live_time_inline, if (useInlineTime) View.VISIBLE else View.GONE)
                 setImageViewBitmap(R.id.qr_code_image, qrBitmap)
                 setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
                 // 设置撕开区域和锯齿的颜色
