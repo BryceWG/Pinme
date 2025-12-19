@@ -29,11 +29,14 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -538,6 +541,7 @@ private fun MarketItemCard(
     } catch (e: Exception) {
         MaterialTheme.colorScheme.primary
     }
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -586,26 +590,62 @@ private fun MarketItemCard(
                 }
 
                 // 操作按钮
-                if (onResetPreset != null) {
-                    IconButton(onClick = onResetPreset) {
-                        Icon(Icons.Rounded.Restore, contentDescription = "重置")
+                if (item.isPreset) {
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Rounded.MoreVert, contentDescription = "更多")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            if (onResetPreset != null) {
+                                DropdownMenuItem(
+                                    text = { Text("恢复默认") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onResetPreset()
+                                    },
+                                    leadingIcon = { Icon(Icons.Rounded.Restore, contentDescription = null) }
+                                )
+                            }
+                            if (onShare != null) {
+                                DropdownMenuItem(
+                                    text = { Text("复制分享码") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        onShare()
+                                    },
+                                    leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("编辑") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onEdit()
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) }
+                            )
+                        }
                     }
-                }
-                if (onShare != null) {
-                    IconButton(onClick = onShare) {
-                        Icon(Icons.Rounded.ContentCopy, contentDescription = "复制分享码")
+                } else {
+                    if (onShare != null) {
+                        IconButton(onClick = onShare) {
+                            Icon(Icons.Rounded.ContentCopy, contentDescription = "复制分享码")
+                        }
                     }
-                }
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Rounded.Edit, contentDescription = "编辑")
-                }
-                if (onDelete != null) {
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Rounded.Delete,
-                            contentDescription = "删除",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Rounded.Edit, contentDescription = "编辑")
+                    }
+                    if (onDelete != null) {
+                        IconButton(onClick = onDelete) {
+                            Icon(
+                                Icons.Rounded.Delete,
+                                contentDescription = "删除",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
@@ -642,15 +682,17 @@ private fun MarketItemCard(
 
                 // 启用开关
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (item.isEnabled) "已启用" else "已禁用",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (item.isEnabled)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    if (!item.isPreset) {
+                        Text(
+                            text = if (item.isEnabled) "已启用" else "已禁用",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (item.isEnabled)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
                     Switch(
                         checked = item.isEnabled,
                         onCheckedChange = onToggleEnabled
