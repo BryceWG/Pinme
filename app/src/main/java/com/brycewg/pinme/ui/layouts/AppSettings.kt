@@ -89,6 +89,9 @@ fun AppSettings() {
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
     var maxHistoryCount by remember { mutableStateOf(Constants.DEFAULT_MAX_HISTORY_COUNT) }
 
+    // 自定义系统指令（仅第一句作为角色描述）
+    var customSystemInstruction by remember { mutableStateOf(Constants.DEFAULT_SYSTEM_INSTRUCTION) }
+
     // 无障碍截图模式相关状态
     var useAccessibilityCapture by remember { mutableStateOf(false) }
     var accessibilityServiceEnabled by remember { mutableStateOf(false) }
@@ -222,6 +225,11 @@ fun AppSettings() {
             ?.toIntOrNull()
             ?.coerceIn(1, 20)
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
+
+        // 加载自定义系统指令
+        customSystemInstruction = dao.getPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION)
+            ?.takeIf { it.isNotBlank() }
+            ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
 
         // 加载无障碍截图模式设置
         useAccessibilityCapture = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
@@ -469,6 +477,42 @@ fun AppSettings() {
                         MaterialTheme.colorScheme.error
                 )
             }
+
+            OutlinedTextField(
+                value = customSystemInstruction,
+                onValueChange = { newValue ->
+                    customSystemInstruction = newValue
+                    scope.launch {
+                        val trimmed = newValue.trim()
+                        if (trimmed.isBlank() || trimmed == Constants.DEFAULT_SYSTEM_INSTRUCTION) {
+                            dao.setPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION, "")
+                        } else {
+                            dao.setPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION, trimmed)
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("系统指令（角色描述）") },
+                supportingText = { Text("可自定义顶层系统提示词，不填则使用默认") },
+                shape = textFieldShape,
+                singleLine = false,
+                minLines = 2,
+                maxLines = 4
+            )
+
+            // 恢复默认按钮，占据整行，使用按钮样式
+            Button(
+                onClick = {
+                    customSystemInstruction = Constants.DEFAULT_SYSTEM_INSTRUCTION
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION, "")
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("恢复默认")
+            }
+
         }
 
         // ==================== 截图模式 ====================

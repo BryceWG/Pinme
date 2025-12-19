@@ -49,7 +49,11 @@ class ExtractWorkflow(
             ?: 0.1
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
-        val systemPrompt = buildSystemPrompt(marketItems)
+        // 读取自定义系统指令
+        val customInstruction = dao.getPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION)
+            ?.takeIf { it.isNotBlank() }
+            ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
+        val systemPrompt = buildSystemPrompt(marketItems, customInstruction)
 
         val imageBase64 = bitmap.toCompressedBase64()
         val userPrompt = buildUserPrompt(marketItems)
@@ -150,7 +154,11 @@ class ExtractWorkflow(
 
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
-        val systemPrompt = buildTextSystemPrompt(marketItems)
+        // 读取自定义系统指令
+        val customInstruction = dao.getPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION)
+            ?.takeIf { it.isNotBlank() }
+            ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
+        val systemPrompt = buildTextSystemPrompt(marketItems, customInstruction)
 
         val modelOutput = vllmClient.chatCompletion(
             baseUrl = baseUrl,
@@ -168,7 +176,7 @@ class ExtractWorkflow(
         return "从截图中提取最重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配。"
     }
 
-    private fun buildTextSystemPrompt(marketItems: List<MarketItemEntity>): String {
+    private fun buildTextSystemPrompt(marketItems: List<MarketItemEntity>, customInstruction: String): String {
         // 分离无匹配类型和其他类型
         val normalTypes = marketItems.filter { it.presetKey != "no_match" }
         val noMatchType = marketItems.find { it.presetKey == "no_match" }
@@ -212,7 +220,7 @@ $typesList
         }
 
         return """
-你是信息提取助手。从用户输入的文本中识别最可能需要反复查看或复制的关键信息。
+$customInstruction
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
@@ -231,7 +239,7 @@ $noMatchSection
         """.trimIndent()
     }
 
-    private fun buildSystemPrompt(marketItems: List<MarketItemEntity>): String {
+    private fun buildSystemPrompt(marketItems: List<MarketItemEntity>, customInstruction: String): String {
         // 分离无匹配类型和其他类型
         val normalTypes = marketItems.filter { it.presetKey != "no_match" }
         val noMatchType = marketItems.find { it.presetKey == "no_match" }
@@ -279,7 +287,7 @@ $typesList
         }
 
         return """
-你是手机截图信息提取助手。从截图中识别用户最可能需要反复查看或复制的关键信息。
+$customInstruction
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：

@@ -24,6 +24,10 @@ object Constants {
     const val PREF_LLM_MODEL = "llm_model"                 // 模型 ID
     const val PREF_LLM_TEMPERATURE = "llm_temperature"     // 温度 (0.0 - 2.0)
     const val PREF_LLM_CUSTOM_BASE_URL = "llm_custom_base_url"  // 自定义 Base URL (到 /v1 即可)
+    const val PREF_CUSTOM_SYSTEM_INSTRUCTION = "custom_system_instruction"  // 自定义系统指令（角色描述）
+
+    // 默认系统指令
+    const val DEFAULT_SYSTEM_INSTRUCTION = "你是手机截图信息提取助手。从截图中识别用户最可能需要反复查看或复制的关键信息。"
 
     // 预置供应商
     enum class LlmProvider(val displayName: String, val baseUrl: String, val defaultModel: String) {
