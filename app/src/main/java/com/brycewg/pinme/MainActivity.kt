@@ -3,6 +3,7 @@ package com.brycewg.pinme
 import android.Manifest
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -135,6 +136,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        handleShareIntent(intent)
     }
 
     // 启动图库选择器
@@ -301,6 +304,12 @@ class MainActivity : ComponentActivity() {
         applyExcludeFromRecentsIfNeeded()
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleShareIntent(intent)
+    }
+
     private fun checkAccessibilityServiceIfNeeded() {
         lifecycleScope.launch {
             val (useRootCapture, useAccessibilityCapture) = withContext(Dispatchers.IO) {
@@ -329,6 +338,86 @@ class MainActivity : ComponentActivity() {
             if (excludeFromRecents) {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                 activityManager.appTasks.firstOrNull()?.setExcludeFromRecents(true)
+            }
+        }
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND) return
+        val type = intent.type ?: return
+
+        if (type.startsWith("image/")) {
+            @Suppress("DEPRECATION")
+            val sharedUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                ?: intent.clipData?.getItemAt(0)?.uri
+            if (sharedUri != null) {
+                processImageUri(sharedUri, "share")
+            } else {
+                Toast.makeText(this, "未检测到可分享的图片", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        if (type.startsWith("text/")) {
+            val sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)
+                ?.toString()
+                ?.trim()
+            if (!sharedText.isNullOrBlank()) {
+                processSharedText(sharedText)
+            } else {
+                Toast.makeText(this, "未检测到可分享的文本", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun processSharedText(sharedText: String) {
+        lifecycleScope.launch {
+            Toast.makeText(this@MainActivity, "正在识别文本...", Toast.LENGTH_SHORT).show()
+
+            try {
+                val parsed = withContext(Dispatchers.IO) {
+                    ExtractWorkflow(this@MainActivity).extractFromText(sharedText)
+                }
+                val createdAt = System.currentTimeMillis()
+                val entity = ExtractEntity(
+                    title = parsed.title,
+                    content = parsed.content,
+                    emoji = parsed.emoji,
+                    source = "share_text",
+                    rawModelOutput = "",
+                    createdAtMillis = createdAt
+                )
+                val id = withContext(Dispatchers.IO) {
+                    DatabaseProvider.dao().insertExtract(entity)
+                }
+
+                val marketItem = withContext(Dispatchers.IO) {
+                    DatabaseProvider.dao().getEnabledMarketItems()
+                        .find { it.title == entity.title }
+                }
+
+                val notificationManager = UnifiedNotificationManager(this@MainActivity)
+                val timeText = android.text.format.DateFormat.format("HH:mm", createdAt).toString()
+                notificationManager.showExtractNotification(
+                    title = entity.title,
+                    content = entity.content,
+                    timeText = timeText,
+                    capsuleColor = marketItem?.capsuleColor,
+                    emoji = entity.emoji ?: marketItem?.emoji,
+                    extractId = id
+                )
+
+                PinMeWidget.updateWidgetContent(this@MainActivity)
+
+                val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
+                val toastText = if (isLive) "已识别并挂到实况通知" else "已识别并发送通知"
+                Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "识别失败：${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }
