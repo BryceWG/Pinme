@@ -14,8 +14,8 @@ android {
         applicationId = "com.brycewg.pinme"
         minSdk = 33
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.1.0"
+        versionCode = 7
+        versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
