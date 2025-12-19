@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -222,6 +223,20 @@ class UnifiedNotificationManager(private val context: Context) {
             isFlymeLiveNotificationEnabled(context)
     }
 
+    /**
+     * 根据文本长度计算合适的字体大小和行数
+     * @return Pair<textSizeSp, maxLines>
+     */
+    private fun calculateTextStyle(text: String): Pair<Float, Int> {
+        val length = text.length
+        return when {
+            length <= 10 -> 30f to 1
+            length <= 18 -> 24f to 1
+            length <= 30 -> 20f to 2
+            else -> 18f to 2
+        }
+    }
+
     private fun showMeizuLiveNotification(
         title: String,
         content: String,
@@ -289,6 +304,9 @@ class UnifiedNotificationManager(private val context: Context) {
         // 计算撕开区域的混合颜色（40% 胶囊色 + 60% 白色）
         val tearAreaColor = blendWithWhite(capsuleBgColor.toColorInt())
 
+        // 计算文本样式（字体大小和行数）
+        val (textSize, maxLines) = calculateTextStyle(content)
+
         // 根据是否有二维码选择不同的布局
         val remoteViews = if (qrBitmap != null) {
             RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
@@ -300,6 +318,9 @@ class UnifiedNotificationManager(private val context: Context) {
                 // 设置撕开区域和锯齿的颜色
                 setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
                 setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
+                // 动态设置字体大小和行数
+                setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
+                setInt(R.id.location, "setMaxLines", maxLines)
             }
         } else {
             RemoteViews(context.packageName, R.layout.live_notification_card).apply {
@@ -311,6 +332,9 @@ class UnifiedNotificationManager(private val context: Context) {
                 // 设置撕开区域和锯齿的颜色
                 setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
                 setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
+                // 动态设置字体大小和行数
+                setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
+                setInt(R.id.location, "setMaxLines", maxLines)
             }
         }
 

@@ -53,18 +53,18 @@
                 android:textSize="20sp" />
         </LinearLayout>
 
-        <!-- 第二行：取件码内容 -->
+        <!-- 第二行：取件码内容（字体大小和行数由代码动态设置） -->
         <TextView
             android:id="@+id/location"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:paddingBottom="4dp"
             android:background="@drawable/location_background"
             android:ellipsize="end"
-            android:maxLines="1"
+            android:maxLines="2"
             android:text="@string/location_example"
             android:textColor="@color/live_title_color"
-            android:textSize="30sp"
             android:textStyle="bold" />
     </LinearLayout>
 

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 底部圆角矩形 -->
+    <!-- 底部圆角矩形（下划线），通过 top 偏移让文字和下划线之间有间距 -->
     <item
-        android:gravity="bottom">
+        android:gravity="bottom"
+        android:top="8dp">
         <shape android:shape="rectangle">
             <size android:height="5dp" /> <!-- 高度固定 5dp -->
             <solid android:color="#FF5722" /> <!-- 改成你想要的颜色 -->
