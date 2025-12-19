@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.PresetMarketTypes
 import com.brycewg.pinme.db.MarketItemEntity
@@ -103,17 +104,32 @@ private fun formatDuration(minutes: Int): String {
 
 // 预设颜色列表
 private val presetColors = listOf(
-    "#FFC107" to "黄色",    // 取件码
-    "#4CAF50" to "绿色",    // 成功/验证码
-    "#2196F3" to "蓝色",    // 信息
-    "#FF5722" to "橙色",    // 警告
-    "#E91E63" to "粉色",    // 优惠
-    "#9C27B0" to "紫色",    // 特殊
-    "#00BCD4" to "青色",    // 交通
-    "#795548" to "棕色",    // 包裹
-    "#607D8B" to "灰色",    // 默认
-    "#F44336" to "红色",    // 紧急
+    "#FFC107" to "黄色",
+    "#4CAF50" to "绿色",
+    "#2196F3" to "蓝色",
+    "#FF5722" to "橙色",
+    "#E91E63" to "粉色",
+    "#9C27B0" to "紫色",
 )
+
+private fun normalizeHexColor(input: String): String? {
+    val trimmed = input.trim().uppercase()
+    val hex = if (trimmed.startsWith("#")) trimmed.drop(1) else trimmed
+    if (hex.length != 6 && hex.length != 8) return null
+    if (!hex.all { it in '0'..'9' || it in 'A'..'F' }) return null
+    return "#$hex"
+}
+
+private fun sanitizeHexInput(input: String): String {
+    val cleaned = input.uppercase().filterIndexed { index, c ->
+        when {
+            c == '#' -> index == 0
+            c in '0'..'9' || c in 'A'..'F' -> true
+            else -> false
+        }
+    }
+    return cleaned.take(9)
+}
 
 
 @Composable
@@ -420,10 +436,18 @@ private fun MarketItemDialog(
     var contentDesc by remember { mutableStateOf(item?.contentDesc ?: "") }
     var emoji by remember { mutableStateOf(item?.emoji ?: "📦") }
     var capsuleColor by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
+    var colorInput by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
     var sliderPosition by remember { 
         mutableFloatStateOf(minutesToSliderPosition(item?.durationMinutes ?: 10)) 
     }
     val currentMinutes = sliderPositionToMinutes(sliderPosition)
+    val normalizedColor = normalizeHexColor(colorInput)
+    val isColorValid = normalizedColor != null
+    val previewColor = try {
+        Color(android.graphics.Color.parseColor(capsuleColor))
+    } catch (e: Exception) {
+        MaterialTheme.colorScheme.primary
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -491,9 +515,55 @@ private fun MarketItemDialog(
                                         MaterialTheme.colorScheme.outline,
                                     shape = CircleShape
                                 )
-                                .clickable { capsuleColor = color }
+                                .clickable {
+                                    capsuleColor = color
+                                    colorInput = color
+                                }
                         )
                     }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(previewColor)
+                            .border(
+                                width = 1.dp,
+                                color = if (isColorValid)
+                                    MaterialTheme.colorScheme.outline
+                                else
+                                    MaterialTheme.colorScheme.error,
+                                shape = CircleShape
+                            )
+                    )
+                    OutlinedTextField(
+                        value = colorInput,
+                        onValueChange = { raw ->
+                            val cleaned = sanitizeHexInput(raw)
+                            colorInput = cleaned
+                            val normalized = normalizeHexColor(cleaned)
+                            if (normalized != null) {
+                                capsuleColor = normalized
+                            }
+                        },
+                        label = { Text("自定义颜色（十六进制）") },
+                        placeholder = { Text("#RRGGBB") },
+                        supportingText = {
+                            Text(
+                                if (isColorValid) "支持 #RRGGBB 或 #AARRGGBB"
+                                else "请输入 6 或 8 位十六进制颜色"
+                            )
+                        },
+                        isError = !isColorValid && colorInput.isNotBlank(),
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        shape = textFieldShape
+                    )
                 }
 
                 // 时长设置
@@ -518,7 +588,7 @@ private fun MarketItemDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (title.isBlank()) return@Button
+                    if (title.isBlank() || !isColorValid) return@Button
                     val newItem = MarketItemEntity(
                         id = item?.id ?: 0,
                         title = title.trim(),
@@ -533,7 +603,7 @@ private fun MarketItemDialog(
                     )
                     onSave(newItem)
                 },
-                enabled = title.isNotBlank()
+                enabled = title.isNotBlank() && isColorValid
             ) {
                 Text(if (isEditing) "保存" else "添加")
             }
