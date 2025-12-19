@@ -17,6 +17,7 @@ object Constants {
 
     // 隐私配置
     const val PREF_EXCLUDE_FROM_RECENTS = "exclude_from_recents"  // 是否从多任务管理中隐藏
+    const val PREF_CAPTURE_TOAST_ENABLED = "capture_toast_enabled" // 截图触发时 Toast 提醒
 
     // LLM 配置
     const val PREF_LLM_PROVIDER = "llm_provider"           // 供应商类型: zhipu / siliconflow / custom

@@ -109,6 +109,9 @@ fun AppSettings() {
     // 隐藏多任务卡片
     var excludeFromRecents by remember { mutableStateOf(false) }
 
+    // 截图触发时 Toast 提示
+    var captureToastEnabled by remember { mutableStateOf(true) }
+
     data class LlmPrefsDraft(
         val provider: LlmProvider,
         val apiKey: String,
@@ -249,6 +252,9 @@ fun AppSettings() {
 
         // 加载隐藏多任务卡片设置
         excludeFromRecents = dao.getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
+
+        // 加载截图 Toast 提示设置
+        captureToastEnabled = dao.getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
     }
 
     LaunchedEffect(selectedProvider, hasInitialized) {
@@ -746,6 +752,18 @@ fun AppSettings() {
                     excludeFromRecents = enabled
                     scope.launch {
                         dao.setPreference(Constants.PREF_EXCLUDE_FROM_RECENTS, enabled.toString())
+                    }
+                }
+            )
+
+            SettingsSwitchItem(
+                title = "截图 Toast 提示",
+                subtitle = "关闭后触发截图时不再弹出 Toast 提醒",
+                checked = captureToastEnabled,
+                onCheckedChange = { enabled ->
+                    captureToastEnabled = enabled
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_CAPTURE_TOAST_ENABLED, enabled.toString())
                     }
                 }
             )

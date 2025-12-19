@@ -16,11 +16,15 @@ class CaptureActivity : ComponentActivity() {
         getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
 
+    private var captureToastEnabled = true
+
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val data = result.data
             if (result.resultCode != RESULT_OK || data == null) {
-                Toast.makeText(this, "未授予截屏权限", Toast.LENGTH_SHORT).show()
+                if (captureToastEnabled) {
+                    Toast.makeText(this, "未授予截屏权限", Toast.LENGTH_SHORT).show()
+                }
                 finishAndRemoveTask()
                 return@registerForActivityResult
             }
@@ -43,6 +47,7 @@ class CaptureActivity : ComponentActivity() {
             val dao = DatabaseProvider.dao()
             val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE) == "true"
             val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
+            captureToastEnabled = dao.getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
             rootEnabled to accessibility
         }
 
@@ -55,7 +60,9 @@ class CaptureActivity : ComponentActivity() {
                 overridePendingTransition(0, 0)
                 return
             } else {
-                Toast.makeText(this, "未检测到 Root，将使用传统截图方式", Toast.LENGTH_SHORT).show()
+                if (captureToastEnabled) {
+                    Toast.makeText(this, "未检测到 Root，将使用传统截图方式", Toast.LENGTH_SHORT).show()
+                }
             }
         }
 

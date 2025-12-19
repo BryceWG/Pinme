@@ -22,6 +22,7 @@ import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
+import com.brycewg.pinme.Constants
 import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.extract.ExtractWorkflow
@@ -336,9 +337,20 @@ class ScreenCaptureService : Service() {
     }
 
     private fun showToast(message: String) {
-        mainHandler.post {
-            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        serviceScope.launch(Dispatchers.IO) {
+            if (!isCaptureToastEnabled()) return@launch
+            mainHandler.post {
+                Toast.makeText(this@ScreenCaptureService, message, Toast.LENGTH_LONG).show()
+            }
         }
+    }
+
+    private suspend fun isCaptureToastEnabled(): Boolean {
+        if (!DatabaseProvider.isInitialized()) {
+            DatabaseProvider.init(this)
+        }
+        return DatabaseProvider.dao()
+            .getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
     }
 
     override fun onDestroy() {
