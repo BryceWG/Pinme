@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.brycewg.pinme.db.DatabaseProvider
+import com.brycewg.pinme.db.PresetMarketTypes
 import com.brycewg.pinme.db.MarketItemEntity
 import kotlinx.coroutines.launch
 
@@ -173,6 +175,17 @@ fun MarketScreen() {
                         onToggleEnabled = { enabled ->
                             scope.launch {
                                 dao.updateMarketItem(item.copy(isEnabled = enabled))
+                                PinMeWidget.updateWidgetContent(context.applicationContext)
+                            }
+                        },
+                        onResetPreset = {
+                            scope.launch {
+                                val defaultItem = PresetMarketTypes.ALL.firstOrNull { it.presetKey == item.presetKey }
+                                if (defaultItem != null) {
+                                    dao.resetPresetMarketItems(listOf(defaultItem))
+                                    PinMeWidget.updateWidgetContent(context.applicationContext)
+                                    Toast.makeText(context, "已恢复预置配置", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     )
@@ -267,7 +280,8 @@ private fun MarketItemCard(
     item: MarketItemEntity,
     onEdit: () -> Unit,
     onDelete: (() -> Unit)?,  // 为 null 时不显示删除按钮（预置类型）
-    onToggleEnabled: (Boolean) -> Unit
+    onToggleEnabled: (Boolean) -> Unit,
+    onResetPreset: (() -> Unit)? = null
 ) {
     val bgColor = try {
         Color(android.graphics.Color.parseColor(item.capsuleColor))
@@ -322,6 +336,11 @@ private fun MarketItemCard(
                 }
 
                 // 操作按钮
+                if (onResetPreset != null) {
+                    IconButton(onClick = onResetPreset) {
+                        Icon(Icons.Rounded.Restore, contentDescription = "重置")
+                    }
+                }
                 IconButton(onClick = onEdit) {
                     Icon(Icons.Rounded.Edit, contentDescription = "编辑")
                 }
@@ -508,6 +527,8 @@ private fun MarketItemDialog(
                         capsuleColor = capsuleColor,
                         durationMinutes = currentMinutes,
                         isEnabled = item?.isEnabled ?: true,
+                        isPreset = item?.isPreset ?: false,
+                        presetKey = item?.presetKey,
                         createdAtMillis = item?.createdAtMillis ?: System.currentTimeMillis()
                     )
                     onSave(newItem)

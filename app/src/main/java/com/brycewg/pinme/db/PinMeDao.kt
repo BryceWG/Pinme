@@ -105,5 +105,31 @@ abstract class PinMeDao {
             insertMarketItem(item)
         }
     }
+
+    /**
+     * 重置所有预置市场项为默认配置
+     * - 已存在的预置项：覆盖标题、描述、图标、颜色、时长、启用状态
+     * - 不存在的预置项：插入默认记录
+     */
+    @Transaction
+    open suspend fun resetPresetMarketItems(defaultItems: List<MarketItemEntity>) {
+        defaultItems.forEach { preset ->
+            val key = preset.presetKey ?: return@forEach
+            val existing = getMarketItemByPresetKey(key)
+            if (existing == null) {
+                insertMarketItem(preset)
+            } else {
+                val updated = existing.copy(
+                    title = preset.title,
+                    contentDesc = preset.contentDesc,
+                    emoji = preset.emoji,
+                    capsuleColor = preset.capsuleColor,
+                    durationMinutes = preset.durationMinutes,
+                    isEnabled = preset.isEnabled
+                )
+                updateMarketItem(updated)
+            }
+        }
+    }
 }
 
