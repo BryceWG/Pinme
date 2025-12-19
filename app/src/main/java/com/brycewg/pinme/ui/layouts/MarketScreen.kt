@@ -56,6 +56,49 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.MarketItemEntity
 import kotlinx.coroutines.launch
 
+// 非线性时间刻度：1-10间隔1, 11-30间隔2, 31-60间隔5, 61-180间隔10, 最后为永久(-1)
+private val timeSteps: List<Int> = buildList {
+    // 1-10 分钟，间隔 1
+    for (i in 1..10) add(i)
+    // 11-30 分钟，间隔 2
+    for (i in 12..30 step 2) add(i)
+    // 31-60 分钟，间隔 5
+    for (i in 35..60 step 5) add(i)
+    // 61-180 分钟，间隔 10
+    for (i in 70..180 step 10) add(i)
+    // 永久
+    add(-1)
+}
+
+// 将分钟数转换为滑块位置
+private fun minutesToSliderPosition(minutes: Int): Float {
+    val index = if (minutes == -1) {
+        timeSteps.size - 1
+    } else {
+        timeSteps.indexOfFirst { it >= minutes && it != -1 }.takeIf { it >= 0 } ?: (timeSteps.size - 2)
+    }
+    return index.toFloat()
+}
+
+// 将滑块位置转换为分钟数
+private fun sliderPositionToMinutes(position: Float): Int {
+    val index = position.toInt().coerceIn(0, timeSteps.size - 1)
+    return timeSteps[index]
+}
+
+// 格式化显示时间
+private fun formatDuration(minutes: Int): String {
+    return when {
+        minutes == -1 -> "永久"
+        minutes >= 60 -> {
+            val hours = minutes / 60
+            val mins = minutes % 60
+            if (mins == 0) "${hours}小时" else "${hours}小时${mins}分钟"
+        }
+        else -> "${minutes}分钟"
+    }
+}
+
 // 预设颜色列表
 private val presetColors = listOf(
     "#FFC107" to "黄色",    // 取件码
@@ -316,7 +359,7 @@ private fun MarketItemCard(
 
                 // 时长
                 Text(
-                    text = "${item.durationMinutes}分钟",
+                    text = formatDuration(item.durationMinutes),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -358,7 +401,10 @@ private fun MarketItemDialog(
     var contentDesc by remember { mutableStateOf(item?.contentDesc ?: "") }
     var emoji by remember { mutableStateOf(item?.emoji ?: "📦") }
     var capsuleColor by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
-    var durationMinutes by remember { mutableFloatStateOf((item?.durationMinutes ?: 10).toFloat()) }
+    var sliderPosition by remember { 
+        mutableFloatStateOf(minutesToSliderPosition(item?.durationMinutes ?: 10)) 
+    }
+    val currentMinutes = sliderPositionToMinutes(sliderPosition)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -433,18 +479,18 @@ private fun MarketItemDialog(
 
                 // 时长设置
                 Text(
-                    text = "显示时长: ${durationMinutes.toInt()} 分钟",
+                    text = "显示时长: ${formatDuration(currentMinutes)}",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Slider(
-                    value = durationMinutes,
-                    onValueChange = { durationMinutes = it },
-                    valueRange = 1f..60f,
-                    steps = 58,
+                    value = sliderPosition,
+                    onValueChange = { sliderPosition = it },
+                    valueRange = 0f..(timeSteps.size - 1).toFloat(),
+                    steps = timeSteps.size - 2,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "通知将在指定时间后自动消失",
+                    text = if (currentMinutes == -1) "通知将永久显示，直到手动关闭" else "通知将在指定时间后自动消失",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -460,7 +506,7 @@ private fun MarketItemDialog(
                         contentDesc = contentDesc.trim().ifBlank { title.trim() },
                         emoji = emoji.ifBlank { "📦" },
                         capsuleColor = capsuleColor,
-                        durationMinutes = durationMinutes.toInt(),
+                        durationMinutes = currentMinutes,
                         isEnabled = item?.isEnabled ?: true,
                         createdAtMillis = item?.createdAtMillis ?: System.currentTimeMillis()
                     )
