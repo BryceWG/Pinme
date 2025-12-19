@@ -165,7 +165,8 @@ class VllmClient(
     suspend fun testConnection(
         baseUrl: String,
         apiKey: String?,
-        model: String
+        model: String,
+        imageBase64: String
     ): String = withContext(Dispatchers.IO) {
         val url = buildChatCompletionsUrl(baseUrl)
         val bodyJson = JSONObject().apply {
@@ -176,11 +177,34 @@ class VllmClient(
                     .put(
                         JSONObject().apply {
                             put("role", "user")
-                            put("content", "Hi")
+                            put(
+                                "content",
+                                JSONArray()
+                                    .put(
+                                        JSONObject().apply {
+                                            put("type", "text")
+                                            put("text", "Describe this image in one short sentence.")
+                                        }
+                                    )
+                                    .put(
+                                        JSONObject().apply {
+                                            put("type", "image_url")
+                                            put(
+                                                "image_url",
+                                                JSONObject().apply {
+                                                    put(
+                                                        "url",
+                                                        "data:image/png;base64,${imageBase64.trim()}"
+                                                    )
+                                                }
+                                            )
+                                        }
+                                    )
+                            )
                         }
                     )
             )
-            put("max_tokens", 16)
+            put("max_tokens", 32)
         }
 
         val requestBody = bodyJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())

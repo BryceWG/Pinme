@@ -1,9 +1,13 @@
 package com.brycewg.pinme.ui.layouts
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -71,6 +75,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import java.io.ByteArrayOutputStream
 
 @Composable
 fun AppSettings() {
@@ -445,11 +450,13 @@ fun AppSettings() {
                             val testModel = model.trim().takeIf { it.isNotBlank() }
                                 ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
                                 ?: throw IllegalStateException("请填写模型 ID")
+                            val testImageBase64 = loadAppIconBase64(context)
 
                             val response = VllmClient().testConnection(
                                 baseUrl = baseUrl,
                                 apiKey = apiKey.takeIf { it.isNotBlank() },
-                                model = testModel
+                                model = testModel,
+                                imageBase64 = testImageBase64
                             )
                             testResult = "连接成功: $response"
                             Toast.makeText(context, "测试成功", Toast.LENGTH_SHORT).show()
@@ -842,4 +849,16 @@ private fun SettingsInfoItem(
                     else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun loadAppIconBase64(context: Context): String {
+    val drawable = context.applicationInfo.loadIcon(context.packageManager)
+    val size = 128
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    drawable.setBounds(0, 0, size, size)
+    drawable.draw(canvas)
+    val stream = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+    return Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
 }
