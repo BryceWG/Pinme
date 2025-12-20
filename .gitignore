@@ -33,3 +33,5 @@ app/src/test/
 
 # Agent/local tooling
 .claude/
+
+dev_docs/

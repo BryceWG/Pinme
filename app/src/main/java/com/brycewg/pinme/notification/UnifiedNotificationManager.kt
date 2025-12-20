@@ -117,11 +117,31 @@ class UnifiedNotificationManager(private val context: Context) {
         }
     }
 
-    /**
-     * 仅当传入的 ID 对应的通知存在时才取消
-     * @return true 如果通知被取消，false 如果通知不存在
-     */
-    fun cancelExtractNotificationIfExists(extractId: Long): Boolean {
+            /**
+             * 将正方形图片填充为 2:1 的宽幅图片，防止 BigPictureStyle 裁切
+             */
+            private fun padBitmapToAspectRatio(bitmap: Bitmap): Bitmap {
+                val width = bitmap.width
+                val height = bitmap.height
+                // 目标宽度：高度 * 2
+                val targetWidth = (height * 2).coerceAtLeast(width)
+    
+                if (targetWidth <= width) return bitmap
+    
+                val output = Bitmap.createBitmap(targetWidth, height, Bitmap.Config.ARGB_8888)
+                val canvas = android.graphics.Canvas(output)
+                // 填充白色背景
+                canvas.drawColor(android.graphics.Color.WHITE)
+                // 居中绘制原图
+                val left = (targetWidth - width) / 2f
+                canvas.drawBitmap(bitmap, left, 0f, null)
+                return output
+            }
+    
+            /**
+             * 仅当传入的 ID 对应的通知存在时才取消
+             * @return true 如果通知被取消，false 如果通知不存在
+             */    fun cancelExtractNotificationIfExists(extractId: Long): Boolean {
         if (isNotificationActive(extractId)) {
             cancelExtractNotification(extractId)
             return true
@@ -153,6 +173,15 @@ class UnifiedNotificationManager(private val context: Context) {
                 timeText = timeText,
                 customCapsuleColor = capsuleColor,
                 emoji = emoji,
+                qrBitmap = qrBitmap,
+                notificationId = notificationId,
+                extractId = extractId
+            )
+        } else if (isGoogleLiveNotificationAvailable()) {
+            showGoogleLiveNotification(
+                title = title,
+                content = content,
+                timeText = timeText,
                 qrBitmap = qrBitmap,
                 notificationId = notificationId,
                 extractId = extractId
@@ -219,9 +248,14 @@ class UnifiedNotificationManager(private val context: Context) {
     }
 
     fun isLiveCapsuleCustomizationAvailable(): Boolean {
-        return Build.MANUFACTURER.equals("meizu", ignoreCase = true) &&
+        return Build.VERSION.SDK_INT >= 26 && Build.MANUFACTURER.equals("meizu", ignoreCase = true) &&
             getFlymeVersion() >= 11 &&
             isFlymeLiveNotificationEnabled(context)
+    }
+
+    fun isGoogleLiveNotificationAvailable(): Boolean {
+        // Android 16 (API 36) introduces promoted notifications
+        return Build.VERSION.SDK_INT >= 36 && notificationManager.canPostPromotedNotifications()
     }
 
     /**
@@ -271,8 +305,9 @@ class UnifiedNotificationManager(private val context: Context) {
 
         val capsuleBundle = Bundle().apply {
             putInt("notification.live.capsuleStatus", 1)
-            putInt("notification.live.capsuleType", 3)
+            putInt("notification.live.capsuleType", 1)
             putString("notification.live.capsuleContent", content)
+            putString("notification.live.capsuleTitle", content)
             // 使用圆环图标
             val drawable = ContextCompat.getDrawable(context, R.drawable.ic_capsule_ring)?.mutate()
             if (drawable != null) {
@@ -356,6 +391,66 @@ class UnifiedNotificationManager(private val context: Context) {
         notificationManager.notify(notificationId, notification)
     }
 
+    private fun showGoogleLiveNotification(
+        title: String,
+        content: String,
+        timeText: String,
+        qrBitmap: Bitmap? = null,
+        notificationId: Int,
+        extractId: Long
+    ) {
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            0,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 删除按钮的 PendingIntent
+        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
+            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+        }
+        val dismissPendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            dismissIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val header = if (timeText.isBlank()) title else "$title · $timeText"
+        val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_pin)
+            .setContentTitle(header)
+            .setContentText(content)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setRequestPromotedOngoing(true)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+            .setShortCriticalText(content.take(6))
+            .addAction(0, "关闭", dismissPendingIntent)
+
+        // 有二维码时使用 BigPictureStyle，否则使用 BigTextStyle
+        if (qrBitmap != null) {
+            builder.setStyle(
+                androidx.core.app.NotificationCompat.BigPictureStyle()
+                    .bigPicture(padBitmapToAspectRatio(qrBitmap))
+                    .setBigContentTitle(header)
+                    .setSummaryText(content)
+            )
+        } else {
+            builder.setStyle(
+                androidx.core.app.NotificationCompat.BigTextStyle().bigText(content)
+            )
+        }
+
+        notificationManager.notify(notificationId, builder.build())
+    }
+
     private fun showNormalNotification(
         title: String,
         content: String,
@@ -401,7 +496,7 @@ class UnifiedNotificationManager(private val context: Context) {
         if (qrBitmap != null) {
             builder.setStyle(
                 androidx.core.app.NotificationCompat.BigPictureStyle()
-                    .bigPicture(qrBitmap)
+                    .bigPicture(padBitmapToAspectRatio(qrBitmap))
                     .setBigContentTitle(header)
                     .setSummaryText(content)
             )

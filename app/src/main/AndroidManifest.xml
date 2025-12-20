@@ -3,6 +3,7 @@
 
     <!-- 通知权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="flyme.permission.READ_NOTIFICATION_LIVE_STATE" />
 
     <!-- 截屏前台服务权限 (Android 14+) -->
