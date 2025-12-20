@@ -333,7 +333,7 @@ class RootCaptureService : Service() {
 
     private suspend fun resolveSourcePackage(): String? {
         if (!SourceAppTracker.isEnabled(this)) return null
-        return SourceAppTracker.resolveForegroundPackage(this)
+        return SourceAppTracker.resolveForegroundPackageWithRootFallback(this)
     }
 
     private suspend fun isCaptureToastEnabled(): Boolean {

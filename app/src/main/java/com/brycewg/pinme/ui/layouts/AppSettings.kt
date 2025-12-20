@@ -693,25 +693,24 @@ fun AppSettings() {
 
         // ==================== 通知与快捷方式 ====================
         SettingsSection(title = "通知与快捷方式") {
+            val rootCaptureReady = useRootCapture && RootCaptureService.isSuAvailable()
+            val canReadSourceFromScreenshot = accessibilityServiceEnabled || rootCaptureReady
             
             SettingsSwitchItem(
                 title = "实况通知标题跳转来源应用",
-                subtitle = "需要开启无障碍服务，仅对分享/截图记录生效",
+                subtitle = "分享来源可自动记录；截图来源需开启无障碍或 Root 截图",
                 checked = sourceAppJumpEnabled,
                 onCheckedChange = { enabled ->
                     sourceAppJumpEnabled = enabled
                     scope.launch {
                         dao.setPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED, enabled.toString())
                     }
-                    if (enabled && !AccessibilityCaptureService.isServiceEnabled(context)) {
-                        showAccessibilityDialog = true
-                    }
                 }
             )
 
-            if (sourceAppJumpEnabled && !accessibilityServiceEnabled) {
+            if (sourceAppJumpEnabled && !canReadSourceFromScreenshot) {
                 Text(
-                    text = "无障碍服务未开启，无法记录截图时的来源应用",
+                    text = "当前未满足截图来源记录条件（无障碍或 Root 截图），截图记录无法获取来源应用（分享仍可）",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -721,7 +720,7 @@ fun AppSettings() {
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("前往无障碍设置")
+                    Text("前往无障碍设置（可选）")
                 }
             }
             
