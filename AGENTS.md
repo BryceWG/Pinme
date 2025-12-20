@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+Communicate in Chinese.
+
 ## Project Structure & Module Organization
 
 - `app/` is the Android application module (Kotlin + Jetpack Compose).
@@ -9,16 +11,7 @@
 
 ## Build, Test, and Development Commands
 
-Prereqs: Android SDK (set by `local.properties`) and JDK 11+.
-
-```bash
-./gradlew assembleDebug        # Build debug APK
-./gradlew installDebug         # Install to device/emulator
-./gradlew test                 # JVM unit tests
-./gradlew connectedAndroidTest # Instrumented tests
-./gradlew lint                 # Android Lint
-./gradlew clean                # Clean build outputs
-```
+Never try to use `./gradlew build`.
 
 ## Coding Style & Naming Conventions
 

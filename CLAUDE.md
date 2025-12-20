@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Communicate in Chinese.
 
 ## Project Overview
 
@@ -11,22 +12,7 @@ PinMe is an Android app (Kotlin, Jetpack Compose) that captures screenshots via 
 
 ## Build Commands
 
-```bash
-# Build debug APK
-./gradlew assembleDebug
-
-# Build release APK
-./gradlew assembleRelease
-
-# Run unit tests
-./gradlew test
-
-# Run instrumented tests
-./gradlew connectedAndroidTest
-
-# Clean build
-./gradlew clean
-```
+Never use `./gradlew build` in this project.
 
 ## Architecture
 
