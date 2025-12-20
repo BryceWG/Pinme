@@ -265,10 +265,11 @@ class UnifiedNotificationManager(private val context: Context) {
     private fun calculateTextStyle(text: String): Pair<Float, Int> {
         val length = text.length
         return when {
-            length <= 10 -> 30f to 1
-            length <= 18 -> 24f to 1
-            length <= 30 -> 20f to 2
-            else -> 18f to 2
+            length <= 7 -> 30f to 1
+            length <= 10 -> 24f to 1
+            length <= 18 -> 20f to 2
+            length <= 30 -> 18f to 2
+            else -> 16f to 2
         }
     }
 
