@@ -7,6 +7,8 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -150,6 +154,7 @@ private const val MARKET_PRESET_SHARE_PREFIX = "PINME_MARKET_PRESET_V1:"
 private data class MarketPresetShare(
     val title: String,
     val contentDesc: String,
+    val outputExample: String = "",
     val emoji: String,
     val capsuleColor: String,
     val durationMinutes: Int,
@@ -172,6 +177,7 @@ private fun buildPresetShareCode(item: MarketItemEntity): String {
     val payload = MarketPresetShare(
         title = item.title.trim(),
         contentDesc = item.contentDesc.trim(),
+        outputExample = item.outputExample.trim(),
         emoji = item.emoji.trim(),
         capsuleColor = item.capsuleColor.trim(),
         durationMinutes = item.durationMinutes,
@@ -458,6 +464,7 @@ fun MarketScreen() {
                         }
 
                         val contentDesc = share.contentDesc.trim().ifBlank { title }
+                        val outputExample = share.outputExample.trim()
                         val emoji = share.emoji.trim().ifBlank { "??" }.take(2)
                         val durationMinutes = normalizeDuration(share.durationMinutes)
 
@@ -466,6 +473,7 @@ fun MarketScreen() {
                             val updatedItem = existing.copy(
                                 title = title,
                                 contentDesc = contentDesc,
+                                outputExample = outputExample,
                                 emoji = emoji,
                                 capsuleColor = normalizedColor,
                                 durationMinutes = durationMinutes,
@@ -478,6 +486,7 @@ fun MarketScreen() {
                             val newItem = MarketItemEntity(
                                 title = title,
                                 contentDesc = contentDesc,
+                                outputExample = outputExample,
                                 emoji = emoji,
                                 capsuleColor = normalizedColor,
                                 durationMinutes = durationMinutes,
@@ -712,9 +721,12 @@ private fun MarketItemDialog(
 ) {
     val isEditing = item != null
     val textFieldShape = RoundedCornerShape(16.dp)
+    val scrollState = rememberScrollState()
+    val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.75f).dp
 
     var title by remember { mutableStateOf(item?.title ?: "") }
     var contentDesc by remember { mutableStateOf(item?.contentDesc ?: "") }
+    var outputExample by remember { mutableStateOf(item?.outputExample ?: "") }
     var emoji by remember { mutableStateOf(item?.emoji ?: "📦") }
     var capsuleColor by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
     var colorInput by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
@@ -736,7 +748,10 @@ private fun MarketItemDialog(
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = maxDialogHeight)
+                    .verticalScroll(scrollState)
             ) {
                 // 标题输入
                 OutlinedTextField(
@@ -758,6 +773,19 @@ private fun MarketItemDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = textFieldShape,
                     singleLine = true
+                )
+
+                // 输出示例
+                OutlinedTextField(
+                    value = outputExample,
+                    onValueChange = { outputExample = it },
+                    label = { Text("输出示例") },
+                    placeholder = { Text("如：5-8-2-1 菜鸟驿站\nA128") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = textFieldShape,
+                    minLines = 1,
+                    maxLines = 6,
+                    supportingText = { Text("每行一个示例") }
                 )
 
                 // 图标输入
@@ -874,6 +902,7 @@ private fun MarketItemDialog(
                         id = item?.id ?: 0,
                         title = title.trim(),
                         contentDesc = contentDesc.trim().ifBlank { title.trim() },
+                        outputExample = outputExample.trim(),
                         emoji = emoji.ifBlank { "📦" },
                         capsuleColor = capsuleColor,
                         durationMinutes = currentMinutes,
@@ -955,3 +984,10 @@ private fun ImportPresetDialog(
         }
     )
 }
+
+
+
+
+
+
+

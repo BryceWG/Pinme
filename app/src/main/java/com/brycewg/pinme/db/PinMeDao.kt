@@ -125,6 +125,7 @@ abstract class PinMeDao {
                 val updated = existing.copy(
                     title = preset.title,
                     contentDesc = preset.contentDesc,
+                    outputExample = preset.outputExample,
                     emoji = preset.emoji,
                     capsuleColor = preset.capsuleColor,
                     durationMinutes = preset.durationMinutes,
@@ -135,4 +136,5 @@ abstract class PinMeDao {
         }
     }
 }
+
 

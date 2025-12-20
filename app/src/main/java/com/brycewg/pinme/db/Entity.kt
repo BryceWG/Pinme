@@ -26,6 +26,7 @@ data class MarketItemEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,           // 标题，如"取件码"
     val contentDesc: String,     // 内容描述，如"取件码号"
+    val outputExample: String = "", // 输出示例（可多行）
     val emoji: String,           // 显示的emoji，如"📦"
     val capsuleColor: String,    // 胶囊颜色，如"#FFC107"
     val durationMinutes: Int,    // 显示时长（分钟）
@@ -34,4 +35,7 @@ data class MarketItemEntity(
     val presetKey: String? = null,  // 预置类型的唯一标识，用于避免重复插入
     val createdAtMillis: Long = System.currentTimeMillis()
 )
+
+
+
 

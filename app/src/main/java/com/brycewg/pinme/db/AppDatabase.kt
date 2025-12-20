@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -56,6 +56,18 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `extract` ADD COLUMN `qrCodeBase64` TEXT DEFAULT NULL")
             }
         }
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 给 market_item 表添加输出示例字段，并填充预置示例
+                db.execSQL("ALTER TABLE `market_item` ADD COLUMN `outputExample` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE `market_item` SET `outputExample` = '5-8-2-1\n菜鸟驿站' WHERE `presetKey` = 'pickup_code'")
+                db.execSQL("UPDATE `market_item` SET `outputExample` = 'A128\nB032' WHERE `presetKey` = 'meal_code'")
+                db.execSQL("UPDATE `market_item` SET `outputExample` = '14:30 G1234 07车12F B2检票口' WHERE `presetKey` = 'train_ticket'")
+                db.execSQL("UPDATE `market_item` SET `outputExample` = '847291' WHERE `presetKey` = 'verification_code'")
+                db.execSQL("UPDATE `market_item` SET `outputExample` = '微信支付成功 ￥128.00\n航班CA1234 准点\n无有效信息' WHERE `presetKey` = 'no_match'")
+            }
+        }
     }
 }
+
 

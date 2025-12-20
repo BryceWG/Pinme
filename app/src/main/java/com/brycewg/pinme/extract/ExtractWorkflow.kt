@@ -240,6 +240,47 @@ class ExtractWorkflow(
         return if (message.isNotBlank()) message else error::class.java.simpleName
     }
 
+    private fun splitExampleBlocks(raw: String): List<String> {
+        val normalized = raw.replace("\r\n", "\n").replace("\r", "\n").trim()
+        if (normalized.isBlank()) return emptyList()
+        return normalized
+            .split("\n")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+    }
+
+    private fun escapeJsonString(value: String): String {
+        if (value.isEmpty()) return ""
+        return buildString(value.length) {
+            value.forEach { ch ->
+                when (ch) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> Unit
+                    '\t' -> append("\\t")
+                    else -> append(ch)
+                }
+            }
+        }
+    }
+
+    private fun buildExampleLines(items: List<MarketItemEntity>): List<String> {
+        return items.flatMap { item ->
+            val examples = splitExampleBlocks(item.outputExample)
+            if (examples.isEmpty()) {
+                emptyList()
+            } else {
+                val title = escapeJsonString(item.title.trim().ifBlank { "识别结果" })
+                val emoji = escapeJsonString(item.emoji.trim().ifBlank { "??" })
+                examples.map { example ->
+                    val content = escapeJsonString(example)
+                    """{"title":"$title","content":"$content","emoji":"$emoji"}"""
+                }
+            }
+        }
+    }
+
     private fun buildUserPrompt(marketItems: List<MarketItemEntity>): String {
         return "从截图中提取最重要的、适合固定展示的关键信息。严格按照已定义的类型进行匹配。"
     }
@@ -262,13 +303,27 @@ $typesList
             ""
         }
 
-        val examplesSection = """
-{"title":"取餐码","content":"A128","emoji":"☕"}
-{"title":"取件码","content":"5-8-2-1 菜鸟驿站","emoji":"📦"}
-{"title":"火车票","content":"14:30 G1234 07车12F","emoji":"🚄"}
-{"title":"验证码","content":"847291","emoji":"🔑"}"""
+        val exampleLines = buildExampleLines(normalTypes)
+        val examplesSection = if (exampleLines.isNotEmpty()) {
+            exampleLines.joinToString("\n")
+        } else {
+            ""
+        }
+        val examplesBlock = if (examplesSection.isNotBlank()) {
+            "\n示例：\n$examplesSection"
+        } else {
+            ""
+        }
 
         // 无匹配类型的处理说明
+        val noMatchExampleLines = noMatchType?.let { buildExampleLines(listOf(it)) }.orEmpty()
+        val noMatchExamplesSection = if (noMatchType != null && noMatchExampleLines.isNotEmpty()) {
+            "示例：\n" + noMatchExampleLines.joinToString("\n")
+        } else if (noMatchType != null) {
+            "示例：\n{\"title\":\"${noMatchType.title}\",\"content\":\"微信支付成功 ￥128.00\",\"emoji\":\"?\"}"
+        } else {
+            ""
+        }
         val noMatchSection = if (noMatchType != null) {
             """
 
@@ -277,14 +332,13 @@ $typesList
 - 提取文本中最关键、最有价值的信息摘要
 - content 应简明扼要，突出重点
 
-示例：
-{"title":"${noMatchType.title}","content":"微信支付成功 ¥128.00","emoji":"✅"}"""
+$noMatchExamplesSection"""
         } else {
             """
 
 ## 无匹配情况
-若文本无明确关键信息，返回：
-{"title":"识别结果","content":"文本主要内容概述","emoji":"📄"}"""
+若文本无明确关键信息，返回例如：
+{"title":"识别结果","content":"文本主要内容概述","emoji":"??"}"""
         }
 
         return """
@@ -292,9 +346,7 @@ $customInstruction
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
-{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}
-
-示例：$examplesSection
+{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}$examplesBlock
 
 ## 规则
 1. **title 必须严格使用已定义类型的标题**，不要自创标题
@@ -325,14 +377,29 @@ $typesList
             ""
         }
 
-        val examplesSection = """
-{"title":"取餐码","content":"A128","emoji":"☕"}
-{"title":"取餐码","content":"B032","emoji":"🍔"}
-{"title":"取件码","content":"5-8-2-1 菜鸟驿站","emoji":"📦"}
-{"title":"火车票","content":"14:30 G1234 07车12F B2检票口","emoji":"🚄"}
-{"title":"验证码","content":"847291","emoji":"🔑"}"""
+        val exampleLines = buildExampleLines(normalTypes)
+        val examplesSection = if (exampleLines.isNotEmpty()) {
+            exampleLines.joinToString("\n")
+        } else {
+            ""
+        }
+        val examplesBlock = if (examplesSection.isNotBlank()) {
+            "\n示例：\n$examplesSection"
+        } else {
+            ""
+        }
 
         // 无匹配类型的处理说明
+        val noMatchExampleLines = noMatchType?.let { buildExampleLines(listOf(it)) }.orEmpty()
+        val noMatchExamplesSection = if (noMatchType != null && noMatchExampleLines.isNotEmpty()) {
+            "示例：\n" + noMatchExampleLines.joinToString("\n")
+        } else if (noMatchType != null) {
+            "示例：\n{\"title\":\"${noMatchType.title}\",\"content\":\"微信支付成功 ￥128.00\",\"emoji\":\"?\"}\n" +
+                "{\"title\":\"${noMatchType.title}\",\"content\":\"航班CA1234 准点\",\"emoji\":\"??\"}\n" +
+                "{\"title\":\"${noMatchType.title}\",\"content\":\"无有效信息\",\"emoji\":\"?\"}"
+        } else {
+            ""
+        }
         val noMatchSection = if (noMatchType != null) {
             """
 
@@ -342,16 +409,13 @@ $typesList
 - content 应简明扼要，突出重点（如页面标题、核心数字、关键状态）
 - 若截图为纯装饰性内容或无实质信息，content 填写"无有效信息"
 
-示例：
-{"title":"${noMatchType.title}","content":"微信支付成功 ¥128.00","emoji":"✅"}
-{"title":"${noMatchType.title}","content":"航班CA1234 准点","emoji":"✈️"}
-{"title":"${noMatchType.title}","content":"无有效信息","emoji":"❓"}"""
+$noMatchExamplesSection"""
         } else {
             """
 
 ## 无匹配情况
-若截图无明确关键信息，返回：
-{"title":"识别结果","content":"截图主要内容概述","emoji":"📄"}"""
+若截图无明确关键信息，返回例如：
+{"title":"识别结果","content":"截图主要内容概述","emoji":"??"}"""
         }
 
         return """
@@ -359,9 +423,7 @@ $customInstruction
 $typesSection
 ## 输出格式
 仅输出 JSON，不要其他内容：
-{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}
-
-示例：$examplesSection
+{"title":"类型简称","content":"关键信息","emoji":"单个emoji"}$examplesBlock
 
 ## 规则
 1. **title 必须严格使用已定义类型的标题**，不要自创标题
@@ -369,12 +431,14 @@ $typesSection
 3. 优先匹配最具体的类型（如"取件码"优于"无匹配"）
 4. 验证码类识别需精确，数字/字母不可遗漏或错误
 5. **emoji 必须根据截图中的品牌/商品/场景选择**，而非类型：
-   - 咖啡店（瑞幸、星巴克）→ ☕ | 奶茶店 → 🧋 | 汉堡店 → 🍔 | 面馆 → 🍜 | 炸鸡店 → 🍗
-   - 高铁 → 🚄 | 飞机 → ✈️ | 电影票 → 🎬 | 演出票 → 🎫
-   - 书籍快递 → 📚 | 服装快递 → 👕 | 通用快递 → 📦
+   - 咖啡店（瑞幸、星巴克）→ ? | 奶茶店 → ?? | 汉堡店 → ?? | 面馆 → ?? | 炸鸡店 → ??
+   - 高铁 → ?? | 飞机 → ?? | 电影票 → ?? | 演出票 → ??
+   - 书籍快递 → ?? | 服装快递 → ?? | 通用快递 → ??
 6. **content 字数不超过 30 字**，超长时精简核心内容
 7. 无需识别二维码本身（系统自动检测），专注于文本信息
 $noMatchSection
         """.trimIndent()
     }
 }
+
+

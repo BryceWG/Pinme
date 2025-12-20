@@ -27,7 +27,7 @@ object DatabaseProvider {
                     AppDatabase::class.java,
                     "pinme.db"
                 )
-                    .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
+                    .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6)
                     .addCallback(object : RoomDatabase.Callback() {
                         override fun onOpen(db: SupportSQLiteDatabase) {
                             super.onOpen(db)
@@ -68,6 +68,7 @@ object PresetMarketTypes {
     val PICKUP_CODE = MarketItemEntity(
         title = "取件码",
         contentDesc = "取件码+驿站/快递柜名称（如：5-8-2-1 菜鸟驿站）",
+        outputExample = "5-8-2-1\n菜鸟驿站",
         emoji = "📦",
         capsuleColor = "#FFC107",
         durationMinutes = 30,
@@ -79,6 +80,7 @@ object PresetMarketTypes {
     val MEAL_CODE = MarketItemEntity(
         title = "取餐码",
         contentDesc = "餐饮取餐号/排队号",
+        outputExample = "A128\nB032",
         emoji = "🍔",
         capsuleColor = "#FF5722",
         durationMinutes = 15,
@@ -90,6 +92,7 @@ object PresetMarketTypes {
     val TRAIN_TICKET = MarketItemEntity(
         title = "火车票",
         contentDesc = "出发时间+车次+座位+检票口（如：14:30 G1234 07车12F B2检票口）",
+        outputExample = "14:30 G1234 07车12F B2检票口",
         emoji = "🚄",
         capsuleColor = "#2196F3",
         durationMinutes = 120,
@@ -101,6 +104,7 @@ object PresetMarketTypes {
     val VERIFICATION_CODE = MarketItemEntity(
         title = "验证码",
         contentDesc = "短信/邮件验证码",
+        outputExample = "847291",
         emoji = "🔐",
         capsuleColor = "#4CAF50",
         durationMinutes = 5,
@@ -112,6 +116,7 @@ object PresetMarketTypes {
     val NO_MATCH = MarketItemEntity(
         title = "无匹配",
         contentDesc = "屏幕内容摘要（无特定类型匹配时）",
+        outputExample = "微信支付成功 ￥128.00\n航班CA1234 准点\n无有效信息",
         emoji = "📋",
         capsuleColor = "#607D8B",
         durationMinutes = 10,
@@ -128,4 +133,6 @@ object PresetMarketTypes {
         NO_MATCH
     )
 }
+
+
 
