@@ -30,6 +30,16 @@ object Constants {
     // 默认系统指令
     const val DEFAULT_SYSTEM_INSTRUCTION = "你是手机截图信息提取助手。从截图中识别用户最可能需要反复查看或复制的关键信息。"
 
+    // 解析异常通知样式
+    const val PARSE_ERROR_TITLE = "解析异常"
+    const val PARSE_ERROR_CONTENT = "无法解析模型输出"
+    const val PARSE_ERROR_EMOJI = "❗"
+    const val PARSE_ERROR_CAPSULE_COLOR = "#D32F2F"
+    const val MODEL_ERROR_TITLE = "模型出错"
+    const val MODEL_ERROR_CONTENT = "模型调用失败"
+    const val MODEL_ERROR_EMOJI = "❗"
+    const val MODEL_ERROR_CAPSULE_COLOR = "#D32F2F"
+
     // 预置供应商
     enum class LlmProvider(val displayName: String, val baseUrl: String, val defaultModel: String) {
         ZHIPU("智谱 AI", "https://open.bigmodel.cn/api/paas/v4", "glm-4v-flash"),

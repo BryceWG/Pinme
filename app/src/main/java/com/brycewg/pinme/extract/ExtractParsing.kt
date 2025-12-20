@@ -8,8 +8,17 @@ data class ExtractParsed(
     val emoji: String? = null
 )
 
+data class ExtractParseResult(
+    val parsed: ExtractParsed,
+    val parsedFromJson: Boolean
+)
+
 object ExtractParsing {
     fun parseModelOutput(modelOutput: String): ExtractParsed {
+        return parseModelOutputWithStatus(modelOutput).parsed
+    }
+
+    fun parseModelOutputWithStatus(modelOutput: String): ExtractParseResult {
         val trimmed = modelOutput.trim()
         val json = tryParseJsonObject(trimmed) ?: tryParseJsonObject(extractFirstJsonObject(trimmed))
         if (json != null) {
@@ -17,13 +26,19 @@ object ExtractParsing {
             val content = json.optString("content", "").trim()
             val emoji = json.optString("emoji", "").trim().takeIf { it.isNotBlank() }
             if (title.isNotBlank() && content.isNotBlank()) {
-                return ExtractParsed(title = title, content = content, emoji = emoji)
+                return ExtractParseResult(
+                    parsed = ExtractParsed(title = title, content = content, emoji = emoji),
+                    parsedFromJson = true
+                )
             }
         }
 
-        return ExtractParsed(
-            title = "识别结果",
-            content = trimmed
+        return ExtractParseResult(
+            parsed = ExtractParsed(
+                title = "识别结果",
+                content = trimmed
+            ),
+            parsedFromJson = false
         )
     }
 

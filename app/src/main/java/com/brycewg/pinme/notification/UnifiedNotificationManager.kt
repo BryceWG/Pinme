@@ -166,14 +166,28 @@ class UnifiedNotificationManager(private val context: Context) {
     ) {
         addActiveNotification(extractId)
         val notificationId = getNotificationId(extractId)
+        val isParseError = title == Constants.PARSE_ERROR_TITLE
+        val isModelError = title == Constants.MODEL_ERROR_TITLE
+        val isFailureNotification = isParseError || isModelError
+        val resolvedCapsuleColor = when {
+            isParseError -> Constants.PARSE_ERROR_CAPSULE_COLOR
+            isModelError -> Constants.MODEL_ERROR_CAPSULE_COLOR
+            else -> capsuleColor
+        }
+        val resolvedEmoji = when {
+            isParseError -> Constants.PARSE_ERROR_EMOJI
+            isModelError -> Constants.MODEL_ERROR_EMOJI
+            else -> emoji
+        }
+        val resolvedQrBitmap = if (isFailureNotification) null else qrBitmap
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
                 title = title,
                 content = content,
                 timeText = timeText,
-                customCapsuleColor = capsuleColor,
-                emoji = emoji,
-                qrBitmap = qrBitmap,
+                customCapsuleColor = resolvedCapsuleColor,
+                emoji = resolvedEmoji,
+                qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
                 extractId = extractId
             )
@@ -182,7 +196,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 title = title,
                 content = content,
                 timeText = timeText,
-                qrBitmap = qrBitmap,
+                qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
                 extractId = extractId
             )
@@ -191,7 +205,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 title = title,
                 content = content,
                 timeText = timeText,
-                qrBitmap = qrBitmap,
+                qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
                 extractId = extractId
             )

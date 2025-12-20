@@ -16,6 +16,11 @@ class ExtractWorkflow(
     private val context: Context,
     private val vllmClient: VllmClient = VllmClient()
 ) {
+    private data class ParsedModelOutput(
+        val parsed: ExtractParsed,
+        val rawOutput: String
+    )
+
     suspend fun processScreenshot(bitmap: Bitmap): ExtractEntity {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(context)
@@ -58,23 +63,24 @@ class ExtractWorkflow(
         val imageBase64 = bitmap.toCompressedBase64()
         val userPrompt = buildUserPrompt(marketItems)
 
-        val modelOutput = vllmClient.chatCompletionWithImage(
-            baseUrl = baseUrl,
-            apiKey = apiKey,
-            model = model,
-            systemPrompt = systemPrompt,
-            userPrompt = userPrompt,
-            imageBase64 = imageBase64,
-            temperature = temperature
-        )
-
-        val parsed = ExtractParsing.parseModelOutput(modelOutput)
+        val parseResult = parseModelOutputWithRetry {
+            vllmClient.chatCompletionWithImage(
+                baseUrl = baseUrl,
+                apiKey = apiKey,
+                model = model,
+                systemPrompt = systemPrompt,
+                userPrompt = userPrompt,
+                imageBase64 = imageBase64,
+                temperature = temperature
+            )
+        }
+        val parsed = parseResult.parsed
         val entity = ExtractEntity(
             title = parsed.title,
             content = parsed.content,
             emoji = parsed.emoji,
             source = "screen",
-            rawModelOutput = modelOutput,
+            rawModelOutput = parseResult.rawOutput,
             createdAtMillis = System.currentTimeMillis()
         )
 
@@ -160,16 +166,78 @@ class ExtractWorkflow(
             ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
         val systemPrompt = buildTextSystemPrompt(marketItems, customInstruction)
 
-        val modelOutput = vllmClient.chatCompletion(
-            baseUrl = baseUrl,
-            apiKey = apiKey,
-            model = model,
-            systemPrompt = systemPrompt,
-            userPrompt = text,
-            temperature = temperature
-        )
+        val parseResult = parseModelOutputWithRetry {
+            vllmClient.chatCompletion(
+                baseUrl = baseUrl,
+                apiKey = apiKey,
+                model = model,
+                systemPrompt = systemPrompt,
+                userPrompt = text,
+                temperature = temperature
+            )
+        }
 
-        return ExtractParsing.parseModelOutput(modelOutput)
+        return parseResult.parsed
+    }
+
+    private suspend fun parseModelOutputWithRetry(fetchOutput: suspend () -> String): ParsedModelOutput {
+        val firstAttempt = runCatching { fetchOutput() }
+        val firstOutput = firstAttempt.getOrNull()
+        if (firstOutput != null) {
+            val firstParse = ExtractParsing.parseModelOutputWithStatus(firstOutput)
+            if (firstParse.parsedFromJson) {
+                return ParsedModelOutput(parsed = firstParse.parsed, rawOutput = firstOutput)
+            }
+        }
+
+        val secondAttempt = runCatching { fetchOutput() }
+        val secondOutput = secondAttempt.getOrNull()
+        if (secondOutput != null) {
+            val secondParse = ExtractParsing.parseModelOutputWithStatus(secondOutput)
+            if (secondParse.parsedFromJson) {
+                return ParsedModelOutput(parsed = secondParse.parsed, rawOutput = secondOutput)
+            }
+        }
+
+        val outputs = listOf(firstOutput, secondOutput).filterNotNull()
+        if (outputs.isNotEmpty()) {
+            val combinedOutput = outputs
+                .filter { it.isNotBlank() }
+                .joinToString("\n\n----- retry -----\n\n")
+            return ParsedModelOutput(
+                parsed = buildParseErrorParsed(),
+                rawOutput = combinedOutput
+            )
+        }
+
+        val combinedErrors = listOf(firstAttempt.exceptionOrNull(), secondAttempt.exceptionOrNull())
+            .filterNotNull()
+            .joinToString("\n\n----- retry -----\n\n") { formatThrowable(it) }
+        return ParsedModelOutput(
+            parsed = buildModelErrorParsed(),
+            rawOutput = combinedErrors.ifBlank { "unknown error" }
+        )
+    }
+
+    private fun buildParseErrorParsed(): ExtractParsed {
+        return ExtractParsed(
+            title = Constants.PARSE_ERROR_TITLE,
+            content = Constants.PARSE_ERROR_CONTENT,
+            emoji = Constants.PARSE_ERROR_EMOJI
+        )
+    }
+
+    private fun buildModelErrorParsed(): ExtractParsed {
+        return ExtractParsed(
+            title = Constants.MODEL_ERROR_TITLE,
+            content = Constants.MODEL_ERROR_CONTENT,
+            emoji = Constants.MODEL_ERROR_EMOJI
+        )
+    }
+
+    private fun formatThrowable(error: Throwable): String {
+        val message = error.message?.trim().orEmpty()
+        return if (message.isNotBlank()) message else error::class.java.simpleName
     }
 
     private fun buildUserPrompt(marketItems: List<MarketItemEntity>): String {
