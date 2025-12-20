@@ -29,6 +29,7 @@ import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.qrcode.QrCodeDetector
+import com.brycewg.pinme.usage.SourceAppTracker
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -131,10 +132,13 @@ class ScreenCaptureService : Service() {
             showToast("截图成功，正在处理")
 
             try {
+                val sourcePackage = resolveSourcePackage()
                 // 并行执行二维码检测和 LLM 识别
                 val (qrResult, extract) = coroutineScope {
                     val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                    val extractDeferred = async { ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap) }
+                    val extractDeferred = async {
+                        ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap, sourcePackage)
+                    }
                     qrDeferred.await() to extractDeferred.await()
                 }
 
@@ -165,7 +169,8 @@ class ScreenCaptureService : Service() {
                         capsuleColor = capsuleColor,
                         emoji = emoji,
                         qrBitmap = qrResult?.croppedBitmap,
-                        extractId = extract.id
+                        extractId = extract.id,
+                        sourcePackage = extract.sourcePackage
                     )
 
                 // 设置定时取消通知
@@ -343,6 +348,11 @@ class ScreenCaptureService : Service() {
                 Toast.makeText(this@ScreenCaptureService, message, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private suspend fun resolveSourcePackage(): String? {
+        if (!SourceAppTracker.isEnabled(this)) return null
+        return SourceAppTracker.resolveForegroundPackage(this)
     }
 
     private suspend fun isCaptureToastEnabled(): Boolean {

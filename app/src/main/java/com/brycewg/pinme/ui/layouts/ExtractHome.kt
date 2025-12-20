@@ -380,7 +380,8 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                                 capsuleColor = capsuleColor,
                                 emoji = emoji,
                                 qrBitmap = qrBitmap,
-                                extractId = item.id
+                                extractId = item.id,
+                                sourcePackage = item.sourcePackage
                             )
                             val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
                             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()

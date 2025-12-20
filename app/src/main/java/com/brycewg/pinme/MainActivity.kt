@@ -51,6 +51,7 @@ import com.brycewg.pinme.ui.layouts.AppSettings
 import com.brycewg.pinme.ui.layouts.ExtractHome
 import com.brycewg.pinme.ui.layouts.MarketScreen
 import com.brycewg.pinme.ui.theme.StarScheduleTheme
+import com.brycewg.pinme.usage.SourceAppTracker
 import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -173,11 +174,17 @@ class MainActivity : ComponentActivity() {
     }
 
     // 处理选中的图片 URI
-    private fun processImageUri(uri: Uri, source: String) {
+    private fun processImageUri(uri: Uri, source: String, sourcePackage: String? = null) {
         lifecycleScope.launch {
             Toast.makeText(this@MainActivity, "正在识别图片...", Toast.LENGTH_SHORT).show()
 
             try {
+                val shouldRecordPackage = SourceAppTracker.isEnabled(this@MainActivity)
+                val resolvedSourcePackage = if (source == "share" && shouldRecordPackage) {
+                    sourcePackage
+                } else {
+                    null
+                }
                 val bitmap = withContext(Dispatchers.IO) {
                     contentResolver.openInputStream(uri)?.use { stream ->
                         BitmapFactory.decodeStream(stream)
@@ -188,7 +195,7 @@ class MainActivity : ComponentActivity() {
                 val (qrResult, extract) = coroutineScope {
                     val qrDeferred = async { QrCodeDetector.detect(bitmap) }
                     val extractDeferred = async {
-                        ExtractWorkflow(this@MainActivity).processScreenshot(bitmap)
+                        ExtractWorkflow(this@MainActivity).processScreenshot(bitmap, resolvedSourcePackage)
                     }
                     qrDeferred.await() to extractDeferred.await()
                 }
@@ -215,7 +222,8 @@ class MainActivity : ComponentActivity() {
                     capsuleColor = marketItem?.capsuleColor,
                     emoji = extract.emoji ?: marketItem?.emoji,
                     qrBitmap = qrResult?.croppedBitmap,
-                    extractId = extract.id
+                    extractId = extract.id,
+                    sourcePackage = extract.sourcePackage
                 )
 
                 // 更新小组件
@@ -345,13 +353,14 @@ class MainActivity : ComponentActivity() {
     private fun handleShareIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND) return
         val type = intent.type ?: return
+        val shareSourcePackage = resolveShareSourcePackage(intent)
 
         if (type.startsWith("image/")) {
             @Suppress("DEPRECATION")
             val sharedUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
                 ?: intent.clipData?.getItemAt(0)?.uri
             if (sharedUri != null) {
-                processImageUri(sharedUri, "share")
+                processImageUri(sharedUri, "share", shareSourcePackage)
             } else {
                 Toast.makeText(this, "未检测到可分享的图片", Toast.LENGTH_SHORT).show()
             }
@@ -363,18 +372,37 @@ class MainActivity : ComponentActivity() {
                 ?.toString()
                 ?.trim()
             if (!sharedText.isNullOrBlank()) {
-                processSharedText(sharedText)
+                processSharedText(sharedText, shareSourcePackage)
             } else {
                 Toast.makeText(this, "未检测到可分享的文本", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun processSharedText(sharedText: String) {
+    private fun resolveShareSourcePackage(intent: Intent?): String? {
+        val referrerUri = intent?.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER)
+            ?: intent?.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let { Uri.parse(it) }
+            ?: referrer
+        return parseAndroidAppReferrer(referrerUri)
+    }
+
+    private fun parseAndroidAppReferrer(referrer: Uri?): String? {
+        if (referrer == null || referrer.scheme != "android-app") return null
+        val host = referrer.host
+        if (!host.isNullOrBlank()) {
+            return host
+        }
+        val schemeSpecific = referrer.schemeSpecificPart?.removePrefix("//")
+        return schemeSpecific?.substringBefore("/")?.takeIf { it.isNotBlank() }
+    }
+
+    private fun processSharedText(sharedText: String, sourcePackage: String?) {
         lifecycleScope.launch {
             Toast.makeText(this@MainActivity, "正在识别文本...", Toast.LENGTH_SHORT).show()
 
             try {
+                val shouldRecordPackage = SourceAppTracker.isEnabled(this@MainActivity)
+                val resolvedSourcePackage = if (shouldRecordPackage) sourcePackage else null
                 val parsed = withContext(Dispatchers.IO) {
                     ExtractWorkflow(this@MainActivity).extractFromText(sharedText)
                 }
@@ -384,6 +412,7 @@ class MainActivity : ComponentActivity() {
                     content = parsed.content,
                     emoji = parsed.emoji,
                     source = "share_text",
+                    sourcePackage = resolvedSourcePackage,
                     rawModelOutput = "",
                     createdAtMillis = createdAt
                 )
@@ -404,7 +433,8 @@ class MainActivity : ComponentActivity() {
                     timeText = timeText,
                     capsuleColor = marketItem?.capsuleColor,
                     emoji = entity.emoji ?: marketItem?.emoji,
-                    extractId = id
+                    extractId = id,
+                    sourcePackage = entity.sourcePackage
                 )
 
                 PinMeWidget.updateWidgetContent(this@MainActivity)

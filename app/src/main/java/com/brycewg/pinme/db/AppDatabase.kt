@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -65,6 +65,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("UPDATE `market_item` SET `outputExample` = '14:30 G1234 07车12F B2检票口' WHERE `presetKey` = 'train_ticket'")
                 db.execSQL("UPDATE `market_item` SET `outputExample` = '847291' WHERE `presetKey` = 'verification_code'")
                 db.execSQL("UPDATE `market_item` SET `outputExample` = '微信支付成功 ￥128.00\n航班CA1234 准点\n无有效信息' WHERE `presetKey` = 'no_match'")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 给 extract 表添加来源应用包名字段
+                db.execSQL("ALTER TABLE `extract` ADD COLUMN `sourcePackage` TEXT DEFAULT NULL")
             }
         }
     }

@@ -21,7 +21,7 @@ class ExtractWorkflow(
         val rawOutput: String
     )
 
-    suspend fun processScreenshot(bitmap: Bitmap): ExtractEntity {
+    suspend fun processScreenshot(bitmap: Bitmap, sourcePackage: String? = null): ExtractEntity {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(context)
         }
@@ -80,6 +80,7 @@ class ExtractWorkflow(
             content = parsed.content,
             emoji = parsed.emoji,
             source = "screen",
+            sourcePackage = sourcePackage,
             rawModelOutput = parseResult.rawOutput,
             createdAtMillis = System.currentTimeMillis()
         )

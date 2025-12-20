@@ -56,6 +56,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -75,6 +76,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.io.ByteArrayOutputStream
 
 @Composable
@@ -111,6 +114,9 @@ fun AppSettings() {
 
     // 截图触发时 Toast 提示
     var captureToastEnabled by remember { mutableStateOf(true) }
+
+    // 实况通知标题跳转来源应用
+    var sourceAppJumpEnabled by remember { mutableStateOf(false) }
 
     data class LlmPrefsDraft(
         val provider: LlmProvider,
@@ -162,6 +168,19 @@ fun AppSettings() {
                     saveCurrentPrefsImmediately()
                 }
             }
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -255,6 +274,10 @@ fun AppSettings() {
 
         // 加载截图 Toast 提示设置
         captureToastEnabled = dao.getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
+
+        // 加载来源应用跳转设置
+        sourceAppJumpEnabled = dao.getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
+        accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
     }
 
     LaunchedEffect(selectedProvider, hasInitialized) {
@@ -648,7 +671,7 @@ fun AppSettings() {
                 onDismissRequest = { showAccessibilityDialog = false },
                 title = { Text("需要无障碍权限") },
                 text = {
-                    Text("无障碍截图模式需要开启无障碍服务。请在设置中找到 PinMe 并开启无障碍权限。")
+                    Text("无障碍相关功能需要开启无障碍服务。请在设置中找到 PinMe 并开启无障碍权限。")
                 },
                 confirmButton = {
                     TextButton(
@@ -670,6 +693,38 @@ fun AppSettings() {
 
         // ==================== 通知与快捷方式 ====================
         SettingsSection(title = "通知与快捷方式") {
+            
+            SettingsSwitchItem(
+                title = "实况通知标题跳转来源应用",
+                subtitle = "需要开启无障碍服务，仅对分享/截图记录生效",
+                checked = sourceAppJumpEnabled,
+                onCheckedChange = { enabled ->
+                    sourceAppJumpEnabled = enabled
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED, enabled.toString())
+                    }
+                    if (enabled && !AccessibilityCaptureService.isServiceEnabled(context)) {
+                        showAccessibilityDialog = true
+                    }
+                }
+            )
+
+            if (sourceAppJumpEnabled && !accessibilityServiceEnabled) {
+                Text(
+                    text = "无障碍服务未开启，无法记录截图时的来源应用",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                OutlinedButton(
+                    onClick = {
+                        AccessibilityCaptureService.openAccessibilitySettings(context)
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("前往无障碍设置")
+                }
+            }
+            
             Button(
                 onClick = {
                     if (Build.VERSION.SDK_INT >= 33) {

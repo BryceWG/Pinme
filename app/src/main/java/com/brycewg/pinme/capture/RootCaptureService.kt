@@ -24,6 +24,7 @@ import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
 import com.brycewg.pinme.widget.PinMeWidget
+import com.brycewg.pinme.usage.SourceAppTracker
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -146,9 +147,12 @@ class RootCaptureService : Service() {
         showToast("截图成功，正在处理")
 
         try {
+            val sourcePackage = resolveSourcePackage()
             val (qrResult, extract) = coroutineScope {
                 val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                val extractDeferred = async { ExtractWorkflow(this@RootCaptureService).processScreenshot(bitmap) }
+                val extractDeferred = async {
+                    ExtractWorkflow(this@RootCaptureService).processScreenshot(bitmap, sourcePackage)
+                }
                 qrDeferred.await() to extractDeferred.await()
             }
 
@@ -175,7 +179,8 @@ class RootCaptureService : Service() {
                     capsuleColor = capsuleColor,
                     emoji = emoji,
                     qrBitmap = qrResult?.croppedBitmap,
-                    extractId = extract.id
+                    extractId = extract.id,
+                    sourcePackage = extract.sourcePackage
                 )
 
             if (durationMinutes != null && durationMinutes > 0) {
@@ -324,6 +329,11 @@ class RootCaptureService : Service() {
                 Toast.makeText(this@RootCaptureService, message, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private suspend fun resolveSourcePackage(): String? {
+        if (!SourceAppTracker.isEnabled(this)) return null
+        return SourceAppTracker.resolveForegroundPackage(this)
     }
 
     private suspend fun isCaptureToastEnabled(): Boolean {

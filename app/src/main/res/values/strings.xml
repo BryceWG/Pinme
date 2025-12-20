@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">PinMe</string>
-    <string name="upcomingClassText">识别于</string>
+    <string name="upcomingClassText">查看</string>
     <string name="location">内容</string>
     <string name="location_example">取餐码 123456</string>
     <string name="class_example">识别结果</string>

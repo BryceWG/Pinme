@@ -21,6 +21,7 @@ import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
 import com.brycewg.pinme.widget.PinMeWidget
+import com.brycewg.pinme.usage.SourceAppTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,6 +77,15 @@ class AccessibilityCaptureService : AccessibilityService() {
             return true
         }
 
+        fun getActiveWindowPackageName(context: Context): String? {
+            val service = instance ?: return null
+            val packageName = service.rootInActiveWindow?.packageName?.toString()?.trim()
+            if (packageName.isNullOrBlank() || packageName == context.packageName) {
+                return null
+            }
+            return packageName
+        }
+
         /**
          * 打开无障碍设置页面
          */
@@ -98,7 +108,7 @@ class AccessibilityCaptureService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // 不需要处理无障碍事件
+        // no-op: 仅在截图时读取前台应用
     }
 
     override fun onInterrupt() {
@@ -179,10 +189,13 @@ class AccessibilityCaptureService : AccessibilityService() {
             try {
                 showToast("截图成功，正在处理")
 
+                val sourcePackage = resolveSourcePackage()
                 // 并行执行二维码检测和 LLM 识别
                 val (qrResult, extract) = coroutineScope {
                     val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                    val extractDeferred = async { ExtractWorkflow(this@AccessibilityCaptureService).processScreenshot(bitmap) }
+                    val extractDeferred = async {
+                        ExtractWorkflow(this@AccessibilityCaptureService).processScreenshot(bitmap, sourcePackage)
+                    }
                     qrDeferred.await() to extractDeferred.await()
                 }
 
@@ -201,7 +214,8 @@ class AccessibilityCaptureService : AccessibilityService() {
                         capsuleColor = capsuleColor,
                         emoji = matchedItem?.emoji,
                         qrBitmap = qrResult?.croppedBitmap,
-                        extractId = extract.id
+                        extractId = extract.id,
+                        sourcePackage = extract.sourcePackage
                     )
 
                 // 设置定时取消通知
@@ -290,6 +304,11 @@ class AccessibilityCaptureService : AccessibilityService() {
                 Toast.makeText(this@AccessibilityCaptureService, message, Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private suspend fun resolveSourcePackage(): String? {
+        if (!SourceAppTracker.isEnabled(this)) return null
+        return SourceAppTracker.resolveForegroundPackage(this)
     }
 
     private suspend fun isCaptureToastEnabled(): Boolean {

@@ -89,6 +89,7 @@ data class WidgetExtractItem(
     val content: String,
     val emoji: String? = null,
     val qrCodeBase64: String? = null,
+    val sourcePackage: String? = null,
     val capsuleColor: String? = null,
     val createdAtMillis: Long
 )
@@ -101,77 +102,25 @@ private val PARAM_EMOJI = ActionParameters.Key<String>("emoji")
 private val PARAM_QR_CODE_BASE64 = ActionParameters.Key<String>("qr_code_base64")
 private val PARAM_CAPSULE_COLOR = ActionParameters.Key<String>("capsule_color")
 private val PARAM_CREATED_AT = ActionParameters.Key<Long>("created_at")
+private val PARAM_SOURCE_PACKAGE = ActionParameters.Key<String>("source_package")
 
 /**
  * Build ActionParameters for pin action
  */
 private fun buildPinActionParameters(item: WidgetExtractItem): ActionParameters {
-    val hasEmoji = item.emoji != null
-    val hasQr = item.qrCodeBase64 != null
-    val hasColor = item.capsuleColor != null
+    val params = mutableListOf<ActionParameters.Pair<out Any>>(
+        PARAM_EXTRACT_ID to item.id,
+        PARAM_TITLE to item.title,
+        PARAM_CONTENT to item.content,
+        PARAM_CREATED_AT to item.createdAtMillis
+    )
 
-    return when {
-        hasEmoji && hasQr && hasColor -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_EMOJI to item.emoji!!,
-            PARAM_QR_CODE_BASE64 to item.qrCodeBase64!!,
-            PARAM_CAPSULE_COLOR to item.capsuleColor!!
-        )
-        hasEmoji && hasQr -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_EMOJI to item.emoji!!,
-            PARAM_QR_CODE_BASE64 to item.qrCodeBase64!!
-        )
-        hasEmoji && hasColor -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_EMOJI to item.emoji!!,
-            PARAM_CAPSULE_COLOR to item.capsuleColor!!
-        )
-        hasQr && hasColor -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_QR_CODE_BASE64 to item.qrCodeBase64!!,
-            PARAM_CAPSULE_COLOR to item.capsuleColor!!
-        )
-        hasEmoji -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_EMOJI to item.emoji!!
-        )
-        hasQr -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_QR_CODE_BASE64 to item.qrCodeBase64!!
-        )
-        hasColor -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis,
-            PARAM_CAPSULE_COLOR to item.capsuleColor!!
-        )
-        else -> actionParametersOf(
-            PARAM_EXTRACT_ID to item.id,
-            PARAM_TITLE to item.title,
-            PARAM_CONTENT to item.content,
-            PARAM_CREATED_AT to item.createdAtMillis
-        )
-    }
+    item.emoji?.let { params.add(PARAM_EMOJI to it) }
+    item.qrCodeBase64?.let { params.add(PARAM_QR_CODE_BASE64 to it) }
+    item.capsuleColor?.let { params.add(PARAM_CAPSULE_COLOR to it) }
+    item.sourcePackage?.let { params.add(PARAM_SOURCE_PACKAGE to it) }
+
+    return actionParametersOf(*params.toTypedArray())
 }
 
 /**
@@ -190,6 +139,7 @@ class PinToNotificationAction : ActionCallback {
         val qrCodeBase64 = parameters[PARAM_QR_CODE_BASE64]
         val capsuleColor = parameters[PARAM_CAPSULE_COLOR]
         val createdAt = parameters[PARAM_CREATED_AT] ?: System.currentTimeMillis()
+        val sourcePackage = parameters[PARAM_SOURCE_PACKAGE]
 
         val timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(createdAt))
 
@@ -213,7 +163,8 @@ class PinToNotificationAction : ActionCallback {
             capsuleColor = capsuleColor,
             emoji = emoji,
             qrBitmap = qrBitmap,
-            extractId = extractId
+            extractId = extractId,
+            sourcePackage = sourcePackage
         )
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -258,6 +209,7 @@ class PinMeWidget : GlanceAppWidget() {
                     content = extract.content,
                     emoji = extract.emoji ?: matchedItem?.emoji,
                     qrCodeBase64 = extract.qrCodeBase64,
+                    sourcePackage = extract.sourcePackage,
                     capsuleColor = matchedItem?.capsuleColor,
                     createdAtMillis = extract.createdAtMillis
                 )

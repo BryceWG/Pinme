@@ -162,6 +162,7 @@ class UnifiedNotificationManager(private val context: Context) {
         capsuleColor: String? = null,
         emoji: String? = null,
         qrBitmap: Bitmap? = null,
+        sourcePackage: String? = null,
         extractId: Long
     ) {
         addActiveNotification(extractId)
@@ -188,6 +189,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 customCapsuleColor = resolvedCapsuleColor,
                 emoji = resolvedEmoji,
                 qrBitmap = resolvedQrBitmap,
+                sourcePackage = sourcePackage,
                 notificationId = notificationId,
                 extractId = extractId
             )
@@ -198,6 +200,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 timeText = timeText,
                 qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
+                sourcePackage = sourcePackage,
                 extractId = extractId
             )
         } else {
@@ -207,6 +210,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 timeText = timeText,
                 qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
+                sourcePackage = sourcePackage,
                 extractId = extractId
             )
         }
@@ -294,6 +298,7 @@ class UnifiedNotificationManager(private val context: Context) {
         customCapsuleColor: String? = null,
         emoji: String? = null,
         qrBitmap: Bitmap? = null,
+        sourcePackage: String? = null,
         notificationId: Int,
         extractId: Long
     ) {
@@ -360,6 +365,12 @@ class UnifiedNotificationManager(private val context: Context) {
         val useInlineTime = maxLines > 1
 
         // 根据是否有二维码选择不同的布局
+        val jumpEnabled = isSourceAppJumpEnabled()
+        val openSourceAppPendingIntent = buildOpenSourceAppPendingIntent(
+            sourcePackage,
+            notificationId,
+            jumpEnabled
+        )
         val remoteViews = if (qrBitmap != null) {
             RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
                 setTextViewText(R.id.live_title, title)
@@ -370,6 +381,13 @@ class UnifiedNotificationManager(private val context: Context) {
                 setViewVisibility(R.id.live_time_inline, if (useInlineTime) View.VISIBLE else View.GONE)
                 setImageViewBitmap(R.id.qr_code_image, qrBitmap)
                 setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                if (openSourceAppPendingIntent != null) {
+                    setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
+                    setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
+                    setViewVisibility(R.id.btn_view_source, View.VISIBLE)
+                } else {
+                    setViewVisibility(R.id.btn_view_source, View.GONE)
+                }
                 // 设置撕开区域和锯齿的颜色
                 setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
                 setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
@@ -384,6 +402,13 @@ class UnifiedNotificationManager(private val context: Context) {
                 setTextViewText(R.id.live_time, timeText)
                 setTextViewText(R.id.live_icon, emoji ?: "❌")
                 setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                if (openSourceAppPendingIntent != null) {
+                    setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
+                    setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
+                    setViewVisibility(R.id.btn_view_source, View.VISIBLE)
+                } else {
+                    setViewVisibility(R.id.btn_view_source, View.GONE)
+                }
                 // 设置撕开区域和锯齿的颜色
                 setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
                 setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
@@ -412,6 +437,7 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String,
         qrBitmap: Bitmap? = null,
         notificationId: Int,
+        sourcePackage: String? = null,
         extractId: Long
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -472,6 +498,7 @@ class UnifiedNotificationManager(private val context: Context) {
         timeText: String,
         qrBitmap: Bitmap? = null,
         notificationId: Int,
+        sourcePackage: String? = null,
         extractId: Long
     ) {
         val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -523,5 +550,31 @@ class UnifiedNotificationManager(private val context: Context) {
 
         notificationManager.notify(notificationId, builder.build())
     }
+
+    private fun buildOpenSourceAppPendingIntent(
+        sourcePackage: String?,
+        notificationId: Int,
+        jumpEnabled: Boolean
+    ): PendingIntent? {
+        if (!jumpEnabled) return null
+        val packageName = sourcePackage?.trim().orEmpty()
+        val intent = Intent(context, OpenSourceAppReceiver::class.java).apply {
+            putExtra(OpenSourceAppReceiver.EXTRA_PACKAGE_NAME, packageName)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            notificationId + 1,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun isSourceAppJumpEnabled(): Boolean = runBlocking {
+        if (!DatabaseProvider.isInitialized()) {
+            DatabaseProvider.init(context)
+        }
+        DatabaseProvider.dao().getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
+    }
 }
+
 
