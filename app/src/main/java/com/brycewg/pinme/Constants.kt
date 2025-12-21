@@ -3,6 +3,7 @@ package com.brycewg.pinme
 object Constants {
     // 偏好设置键
     const val PREF_LIVE_CAPSULE_BG_COLOR = "live_capsule_bg_color"
+    const val PREF_TUTORIAL_SEEN = "tutorial_seen"
 
     // 历史记录配置
     const val PREF_MAX_HISTORY_COUNT = "max_history_count"  // 最大历史记录数量 (1-20)

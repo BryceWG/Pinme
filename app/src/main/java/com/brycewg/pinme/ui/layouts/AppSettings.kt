@@ -81,7 +81,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import java.io.ByteArrayOutputStream
 
 @Composable
-fun AppSettings() {
+fun AppSettings(onShowTutorial: () -> Unit = {}) {
     val context = LocalContext.current
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
@@ -822,9 +822,21 @@ fun AppSettings() {
                 }
             )
 
+            Button(
+                onClick = onShowTutorial,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("查看使用教程")
+            }
+
             SettingsInfoItem(
                 title = "版本",
                 value = BuildConfig.VERSION_NAME
+            )
+
+            SettingsInfoItem(
+                title = "作者",
+                value = "BryceWG"
             )
 
             SettingsInfoItem(
@@ -832,6 +844,18 @@ fun AppSettings() {
                 value = "GitHub",
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/BryceWG/Pinme"))
+                    context.startActivity(intent)
+                }
+            )
+
+            SettingsInfoItem(
+                title = "作者其他项目",
+                value = "说点啥 AI语音输入工具",
+                onClick = {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/BryceWG/BiBi-Keyboard")
+                    )
                     context.startActivity(intent)
                 }
             )

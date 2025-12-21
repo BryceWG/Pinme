@@ -33,7 +33,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -47,6 +50,7 @@ import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
 import com.brycewg.pinme.ui.components.AddRecordActions
 import com.brycewg.pinme.ui.components.LocalAddRecordActions
+import com.brycewg.pinme.ui.components.TutorialDialog
 import com.brycewg.pinme.ui.layouts.AppSettings
 import com.brycewg.pinme.ui.layouts.ExtractHome
 import com.brycewg.pinme.ui.layouts.MarketScreen
@@ -466,11 +470,32 @@ class MainActivity : ComponentActivity() {
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun AppRoot() {
+    val dao = DatabaseProvider.dao()
+    val scope = rememberCoroutineScope()
     var selected by remember { mutableIntStateOf(0) }
+    var showTutorial by remember { mutableStateOf(false) }
     val title = when (selected) {
         0 -> "PinMe"
         1 -> "市场"
         else -> "设置"
+    }
+
+    LaunchedEffect(Unit) {
+        val hasSeenTutorial = dao.getPreference(Constants.PREF_TUTORIAL_SEEN) == "true"
+        if (!hasSeenTutorial) {
+            showTutorial = true
+        }
+    }
+
+    val dismissTutorial: () -> Unit = {
+        showTutorial = false
+        scope.launch {
+            dao.setPreference(Constants.PREF_TUTORIAL_SEEN, "true")
+        }
+    }
+
+    if (showTutorial) {
+        TutorialDialog(onDismiss = dismissTutorial)
     }
 
     Scaffold(
@@ -502,7 +527,7 @@ private fun AppRoot() {
             when (selected) {
                 0 -> ExtractHome()
                 1 -> MarketScreen()
-                else -> AppSettings()
+                else -> AppSettings(onShowTutorial = { showTutorial = true })
             }
         }
     }
