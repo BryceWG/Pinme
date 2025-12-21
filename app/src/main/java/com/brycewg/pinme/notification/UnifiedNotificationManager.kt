@@ -461,7 +461,7 @@ class UnifiedNotificationManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val header = if (timeText.isBlank()) title else "$title · $timeText"
+        val header = if (content.isBlank()) title else "$title · $content"
         val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle(header)
