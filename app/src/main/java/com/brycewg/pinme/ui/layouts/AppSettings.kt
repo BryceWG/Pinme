@@ -56,7 +56,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -69,6 +68,7 @@ import com.brycewg.pinme.vllm.getLlmScopedPreference
 import com.brycewg.pinme.vllm.migrateLegacyLlmPreferencesToScoped
 import com.brycewg.pinme.vllm.setLlmScopedPreference
 import com.brycewg.pinme.vllm.toStoredValue
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.collectLatest
@@ -78,8 +78,10 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.ByteArrayOutputStream
 
+@OptIn(FlowPreview::class)
 @Composable
 fun AppSettings(onShowTutorial: () -> Unit = {}) {
     val context = LocalContext.current

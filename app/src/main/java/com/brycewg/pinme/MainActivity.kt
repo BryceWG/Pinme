@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.lifecycleScope
 import com.brycewg.pinme.capture.AccessibilityCaptureService
 import com.brycewg.pinme.db.DatabaseProvider
@@ -360,8 +361,7 @@ class MainActivity : ComponentActivity() {
         val shareSourcePackage = resolveShareSourcePackage(intent)
 
         if (type.startsWith("image/")) {
-            @Suppress("DEPRECATION")
-            val sharedUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            val sharedUri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                 ?: intent.clipData?.getItemAt(0)?.uri
             if (sharedUri != null) {
                 processImageUri(sharedUri, "share", shareSourcePackage)
@@ -384,7 +384,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun resolveShareSourcePackage(intent: Intent?): String? {
-        val referrerUri = intent?.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER)
+        val referrerUri = intent?.let {
+            IntentCompat.getParcelableExtra(it, Intent.EXTRA_REFERRER, Uri::class.java)
+        }
             ?: intent?.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let { Uri.parse(it) }
             ?: referrer
         return parseAndroidAppReferrer(referrerUri)

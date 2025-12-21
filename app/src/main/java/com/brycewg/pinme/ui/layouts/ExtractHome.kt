@@ -9,6 +9,8 @@ import android.util.Base64
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
+import androidx.compose.foundation.gestures.AnchoredDraggableState
 import androidx.compose.foundation.gestures.DraggableAnchors
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.anchoredDraggable
@@ -288,18 +290,18 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
     val revealWidthPx = with(density) { 72.dp.toPx() }
 
     val swipeState = remember(revealWidthPx) {
-        androidx.compose.foundation.gestures.AnchoredDraggableState(
+        AnchoredDraggableState(
             initialValue = ExtractCardSwipeState.Closed,
             anchors = DraggableAnchors {
                 ExtractCardSwipeState.Closed at 0f
                 ExtractCardSwipeState.Open at revealWidthPx
-            },
-            positionalThreshold = { distance: Float -> distance * 0.5f },
-            velocityThreshold = { with(density) { 120.dp.toPx() } },
-            snapAnimationSpec = androidx.compose.animation.core.spring(),
-            decayAnimationSpec = androidx.compose.animation.core.exponentialDecay()
+            }
         )
     }
+    val swipeFlingBehavior = AnchoredDraggableDefaults.flingBehavior(
+        state = swipeState,
+        positionalThreshold = { distance: Float -> distance * 0.5f }
+    )
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
@@ -323,7 +325,11 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(swipeState.offset.roundToInt(), 0) }
-                .anchoredDraggable(state = swipeState, orientation = Orientation.Horizontal),
+                .anchoredDraggable(
+                    state = swipeState,
+                    orientation = Orientation.Horizontal,
+                    flingBehavior = swipeFlingBehavior
+                ),
             shape = shape,
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {

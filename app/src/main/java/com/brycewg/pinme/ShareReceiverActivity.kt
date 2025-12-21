@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.IntentCompat
 import com.brycewg.pinme.share.ShareProcessorService
 import com.brycewg.pinme.usage.SourceAppTracker
 import kotlinx.coroutines.runBlocking
@@ -33,8 +34,7 @@ class ShareReceiverActivity : ComponentActivity() {
 
         when {
             type.startsWith("image/") -> {
-                @Suppress("DEPRECATION")
-                val sharedUri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+                val sharedUri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
                     ?: intent.clipData?.getItemAt(0)?.uri
                 if (sharedUri != null) {
                     Toast.makeText(this, "正在后台识别图片...", Toast.LENGTH_SHORT).show()
@@ -58,7 +58,9 @@ class ShareReceiverActivity : ComponentActivity() {
     }
 
     private fun resolveShareSourcePackage(intent: Intent?): String? {
-        val referrerUri = intent?.getParcelableExtra<Uri>(Intent.EXTRA_REFERRER)
+        val referrerUri = intent?.let {
+            IntentCompat.getParcelableExtra(it, Intent.EXTRA_REFERRER, Uri::class.java)
+        }
             ?: intent?.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let { Uri.parse(it) }
             ?: referrer
         return parseAndroidAppReferrer(referrerUri)

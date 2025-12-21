@@ -18,9 +18,11 @@ android {
         versionName = "1.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
+    androidResources {
         // 只保留中英文资源，减少 APK 体积
-        resourceConfigurations += listOf("zh", "en")
+        localeFilters += listOf("zh", "en")
     }
 
     signingConfigs {
@@ -72,6 +74,7 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
