@@ -3,6 +3,7 @@ package com.brycewg.pinme.widget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.Log
@@ -26,6 +27,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
@@ -51,6 +53,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.brycewg.pinme.MainActivity
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
@@ -311,6 +314,7 @@ class PinMeWidget : GlanceAppWidget() {
 
     @Composable
     private fun ExtractItemRow(item: WidgetExtractItem) {
+        val context = LocalContext.current
         val buttonColor =
             try {
                 val baseColor = ComposeColor((item.capsuleColor ?: DEFAULT_CAPSULE_COLOR).toColorInt())
@@ -333,37 +337,52 @@ class PinMeWidget : GlanceAppWidget() {
                     .padding(8.dp),
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
-            if (item.emoji != null) {
-                Text(
-                    text = item.emoji,
-                    style = TextStyle(fontSize = 20.sp),
-                )
-                Spacer(modifier = GlanceModifier.width(8.dp))
-            }
-
-            Column(
-                modifier = GlanceModifier.defaultWeight(),
+            Row(
+                modifier =
+                    GlanceModifier
+                        .defaultWeight()
+                        .clickable(
+                            onClick =
+                                actionStartActivity(
+                                    Intent(context, MainActivity::class.java).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    },
+                                ),
+                        ),
+                verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
-                Text(
-                    text = item.title,
-                    style =
-                        TextStyle(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = ColorProvider(ComposeColor(0xFF666666)),
-                        ),
-                    maxLines = 1,
-                )
-                Text(
-                    text = item.content,
-                    style =
-                        TextStyle(
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ColorProvider(ComposeColor(0xFF333333)),
-                        ),
-                    maxLines = 1,
-                )
+                if (item.emoji != null) {
+                    Text(
+                        text = item.emoji,
+                        style = TextStyle(fontSize = 20.sp),
+                    )
+                    Spacer(modifier = GlanceModifier.width(8.dp))
+                }
+
+                Column(
+                    modifier = GlanceModifier.defaultWeight(),
+                ) {
+                    Text(
+                        text = item.title,
+                        style =
+                            TextStyle(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = ColorProvider(ComposeColor(0xFF666666)),
+                            ),
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = item.content,
+                        style =
+                            TextStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ColorProvider(ComposeColor(0xFF333333)),
+                            ),
+                        maxLines = 1,
+                    )
+                }
             }
 
             Spacer(modifier = GlanceModifier.width(6.dp))
