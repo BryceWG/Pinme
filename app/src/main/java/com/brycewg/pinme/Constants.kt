@@ -32,6 +32,12 @@ object Constants {
     const val PREF_LLM_EXTRA_PARAMS = "llm_extra_params" // 自定义推理参数（JSON 对象，追加到请求体）
     const val PREF_CUSTOM_SYSTEM_INSTRUCTION = "custom_system_instruction" // 自定义系统指令（角色描述）
 
+    // LLM 请求超时配置（全局生效，适用于测试连接、截图提取、文本提取）
+    const val PREF_LLM_TIMEOUT_SECONDS = "llm_timeout_seconds" // 请求超时时间（秒）
+    const val MIN_LLM_TIMEOUT_SECONDS = 5 // 最小超时（秒）
+    const val MAX_LLM_TIMEOUT_SECONDS = 600 // 最大超时（秒）
+    const val DEFAULT_LLM_TIMEOUT_SECONDS = 60 // 默认超时（秒）
+
     // 默认系统指令
     const val DEFAULT_SYSTEM_INSTRUCTION = "你是手机截图信息提取助手。从截图中识别用户最可能需要反复查看或复制的关键信息。"
 

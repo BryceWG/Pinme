@@ -8,18 +8,31 @@ import com.brycewg.pinme.Constants.LlmProvider
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.db.MarketItemEntity
+import com.brycewg.pinme.db.PinMeDao
 import com.brycewg.pinme.vllm.VllmClient
 import com.brycewg.pinme.vllm.getLlmScopedPreferenceWithLegacyFallback
 import java.io.ByteArrayOutputStream
 
 class ExtractWorkflow(
     private val context: Context,
-    private val vllmClient: VllmClient = VllmClient(),
 ) {
     private data class ParsedModelOutput(
         val parsed: ExtractParsed,
         val rawOutput: String,
     )
+
+    /** 按通用设置中的超时时间构造 VllmClient，测试连接与所有提取请求共用该限制 */
+    private suspend fun createVllmClient(dao: PinMeDao): VllmClient {
+        val minTimeout = Constants.MIN_LLM_TIMEOUT_SECONDS.toLong()
+        val maxTimeout = Constants.MAX_LLM_TIMEOUT_SECONDS.toLong()
+        val timeoutSeconds =
+            dao
+                .getPreference(Constants.PREF_LLM_TIMEOUT_SECONDS)
+                ?.toLongOrNull()
+                ?.coerceIn(minTimeout, maxTimeout)
+                ?: Constants.DEFAULT_LLM_TIMEOUT_SECONDS.toLong()
+        return VllmClient(timeoutSeconds = timeoutSeconds)
+    }
 
     suspend fun processScreenshot(
         bitmap: Bitmap,
@@ -84,6 +97,7 @@ class ExtractWorkflow(
 
         val imageBase64 = bitmap.toCompressedBase64()
         val userPrompt = buildUserPrompt(marketItems)
+        val vllmClient = createVllmClient(dao)
 
         val parseResult =
             parseModelOutputWithRetry {
@@ -212,6 +226,7 @@ class ExtractWorkflow(
                 ?.takeIf { it.isNotBlank() }
                 ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
         val systemPrompt = buildTextSystemPrompt(marketItems, customInstruction)
+        val vllmClient = createVllmClient(dao)
 
         val parseResult =
             parseModelOutputWithRetry {

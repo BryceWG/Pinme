@@ -97,6 +97,9 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
     var maxHistoryCount by remember { mutableStateOf(Constants.DEFAULT_MAX_HISTORY_COUNT) }
 
+    // LLM 请求超时时间（秒，全局生效）
+    var timeoutSeconds by remember { mutableStateOf(Constants.DEFAULT_LLM_TIMEOUT_SECONDS) }
+
     // 自定义系统指令（仅第一句作为角色描述）
     var customSystemInstruction by remember { mutableStateOf(Constants.DEFAULT_SYSTEM_INSTRUCTION) }
 
@@ -269,6 +272,13 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
             ?.toIntOrNull()
             ?.coerceIn(Constants.MIN_HISTORY_COUNT, Constants.MAX_HISTORY_COUNT)
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
+
+        // 加载 LLM 请求超时时间
+        timeoutSeconds = dao
+            .getPreference(Constants.PREF_LLM_TIMEOUT_SECONDS)
+            ?.toIntOrNull()
+            ?.coerceIn(Constants.MIN_LLM_TIMEOUT_SECONDS, Constants.MAX_LLM_TIMEOUT_SECONDS)
+            ?: Constants.DEFAULT_LLM_TIMEOUT_SECONDS
 
         // 加载自定义系统指令
         customSystemInstruction = dao
@@ -544,7 +554,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 val testImageBase64 = loadAppIconBase64(context)
 
                                 val response =
-                                    VllmClient().testConnection(
+                                    VllmClient(timeoutSeconds = timeoutSeconds.toLong()).testConnection(
                                         baseUrl = baseUrl,
                                         apiKey = apiKey.takeIf { it.isNotBlank() },
                                         model = testModel,
@@ -862,6 +872,22 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 valueRange = Constants.MIN_HISTORY_COUNT.toFloat()..Constants.MAX_HISTORY_COUNT.toFloat(),
                 steps = Constants.MAX_HISTORY_COUNT - Constants.MIN_HISTORY_COUNT - 1,
                 summary = "超出限制的旧记录会被自动删除",
+            )
+
+            SliderPreference(
+                value = timeoutSeconds.toFloat(),
+                onValueChange = { newValue ->
+                    timeoutSeconds = newValue.toInt()
+                    scope.launch {
+                        dao.setPreference(Constants.PREF_LLM_TIMEOUT_SECONDS, timeoutSeconds.toString())
+                    }
+                },
+                title = "请求超时时间",
+                valueText = "${timeoutSeconds}s",
+                valueRange =
+                    Constants.MIN_LLM_TIMEOUT_SECONDS.toFloat()..Constants.MAX_LLM_TIMEOUT_SECONDS.toFloat(),
+                steps = (Constants.MAX_LLM_TIMEOUT_SECONDS - Constants.MIN_LLM_TIMEOUT_SECONDS) / 30 - 1,
+                summary = "所有 LLM 请求（测试连接、截图/文本提取）的超时上限",
             )
 
             SwitchPreference(

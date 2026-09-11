@@ -1,5 +1,6 @@
 package com.brycewg.pinme.vllm
 
+import com.brycewg.pinme.Constants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -11,14 +12,16 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 class VllmClient(
-    private val okHttpClient: OkHttpClient =
+    timeoutSeconds: Long = Constants.DEFAULT_LLM_TIMEOUT_SECONDS.toLong(),
+) {
+    private val okHttpClient =
         OkHttpClient
             .Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(90, TimeUnit.SECONDS)
-            .writeTimeout(90, TimeUnit.SECONDS)
-            .build(),
-) {
+            .connectTimeout(timeoutSeconds, TimeUnit.SECONDS)
+            .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+            .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
+            .build()
+
     suspend fun chatCompletionWithImage(
         baseUrl: String,
         apiKey: String?,
