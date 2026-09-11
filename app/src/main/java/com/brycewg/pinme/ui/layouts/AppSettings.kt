@@ -448,25 +448,13 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         singleLine = true,
                     )
 
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        TextField(
-                            value = model,
-                            onValueChange = { model = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = "模型 ID",
-                            singleLine = true,
-                        )
-                        Text(
-                            text =
-                                when (selectedProvider) {
-                                    LlmProvider.ZHIPU -> "例如 glm-4v-flash、glm-4v-plus"
-                                    LlmProvider.SILICONFLOW -> "例如 Qwen/Qwen2.5-VL-72B-Instruct"
-                                    LlmProvider.CUSTOM -> "根据你的服务填写模型名称"
-                                },
-                            style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                    }
+                    TextField(
+                        value = model,
+                        onValueChange = { model = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "视觉模型 ID",
+                        singleLine = true,
+                    )
                 }
 
                 SliderPreference(
