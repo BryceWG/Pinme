@@ -18,7 +18,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -67,6 +74,8 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -88,6 +97,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
 
     var selectedProvider by remember { mutableStateOf(LlmProvider.ZHIPU) }
     var apiKey by remember { mutableStateOf("") }
+    var apiKeyVisible by remember(selectedProvider) { mutableStateOf(false) }
     var model by remember { mutableStateOf("") }
     var temperature by remember { mutableFloatStateOf(0.1f) }
     var customBaseUrl by remember { mutableStateOf("") }
@@ -476,6 +486,40 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth(),
                         label = "API Key",
                         singleLine = true,
+                        visualTransformation =
+                            if (apiKeyVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { apiKeyVisible = !apiKeyVisible },
+                                modifier = Modifier.padding(end = 12.dp),
+                            ) {
+                                Icon(
+                                    imageVector =
+                                        if (apiKeyVisible) {
+                                            Icons.Rounded.VisibilityOff
+                                        } else {
+                                            Icons.Rounded.Visibility
+                                        },
+                                    tint =
+                                        if (apiKeyVisible) {
+                                            MiuixTheme.colorScheme.primary
+                                        } else {
+                                            MiuixTheme.colorScheme.onSecondaryContainer
+                                        },
+                                    contentDescription =
+                                        if (apiKeyVisible) {
+                                            "隐藏 API Key"
+                                        } else {
+                                            "显示 API Key"
+                                        },
+                                )
+                            }
+                        },
                     )
 
                     TextField(
