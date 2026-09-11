@@ -62,6 +62,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -90,6 +91,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     var model by remember { mutableStateOf("") }
     var temperature by remember { mutableFloatStateOf(0.1f) }
     var customBaseUrl by remember { mutableStateOf("") }
+    var extraParams by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
@@ -122,6 +124,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         val model: String,
         val temperature: Float,
         val customBaseUrl: String,
+        val extraParams: String,
     )
 
     var lastSavedDraft by remember { mutableStateOf<LlmPrefsDraft?>(null) }
@@ -136,6 +139,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     model = model,
                     temperature = temperature,
                     customBaseUrl = customBaseUrl,
+                    extraParams = extraParams,
                 )
             if (draft != lastSavedDraft) {
                 dao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, draft.provider, draft.apiKey)
@@ -153,6 +157,11 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     Constants.PREF_LLM_CUSTOM_BASE_URL,
                     draft.provider,
                     draft.customBaseUrl.trim(),
+                )
+                dao.setLlmScopedPreference(
+                    Constants.PREF_LLM_EXTRA_PARAMS,
+                    draft.provider,
+                    draft.extraParams.trim(),
                 )
                 lastSavedDraft = draft
             }
@@ -241,6 +250,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
             ?: 0.1f
         customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, provider)
             ?: ""
+        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, provider) ?: ""
         lastSavedDraft =
             LlmPrefsDraft(
                 provider = provider,
@@ -248,6 +258,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 model = model,
                 temperature = temperature,
                 customBaseUrl = customBaseUrl,
+                extraParams = extraParams,
             )
         isHydratingProviderPrefs = false
         hasInitialized = true
@@ -300,6 +311,8 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
             ?: 0.1f
         customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, selectedProvider)
             ?: ""
+        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, selectedProvider)
+            ?: ""
         lastSavedDraft =
             LlmPrefsDraft(
                 provider = selectedProvider,
@@ -307,6 +320,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 model = model,
                 temperature = temperature,
                 customBaseUrl = customBaseUrl,
+                extraParams = extraParams,
             )
         isHydratingProviderPrefs = false
     }
@@ -320,6 +334,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     model = model,
                     temperature = temperature,
                     customBaseUrl = customBaseUrl,
+                    extraParams = extraParams,
                 )
         }.filter { (hydrating, _) -> !hydrating }
             .map { (_, draft) -> draft }
@@ -343,6 +358,11 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     Constants.PREF_LLM_CUSTOM_BASE_URL,
                     draft.provider,
                     draft.customBaseUrl.trim(),
+                )
+                latestDao.setLlmScopedPreference(
+                    Constants.PREF_LLM_EXTRA_PARAMS,
+                    draft.provider,
+                    draft.extraParams.trim(),
                 )
                 lastSavedDraft = draft
             }
@@ -467,6 +487,37 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     summary = "较低温度输出更确定，较高温度输出更多样",
                 )
 
+                val extraParamsIsValid =
+                    extraParams.isBlank() || runCatching { JSONObject(extraParams) }.isSuccess
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TextField(
+                        value = extraParams,
+                        onValueChange = { extraParams = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "自定义推理参数",
+                        minLines = 2,
+                        maxLines = 4,
+                    )
+                    Text(
+                        text =
+                            if (extraParamsIsValid) {
+                                "JSON 对象，追加到请求体，如 {\"top_p\": 0.9, \"max_tokens\": 1024}"
+                            } else {
+                                "格式错误：请输入合法的 JSON 对象"
+                            },
+                        style = MiuixTheme.textStyles.footnote1,
+                        color =
+                            if (extraParamsIsValid) {
+                                MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            } else {
+                                MiuixTheme.colorScheme.error
+                            },
+                    )
+                }
+
                 Button(
                     onClick = {
                         scope.launch {
@@ -498,6 +549,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                         apiKey = apiKey.takeIf { it.isNotBlank() },
                                         model = testModel,
                                         imageBase64 = testImageBase64,
+                                        extraParamsJson = extraParams.trim().takeIf { it.isNotBlank() },
                                     )
                                 testResult = "连接成功: $response"
                                 Toast.makeText(context, "测试成功", Toast.LENGTH_SHORT).show()

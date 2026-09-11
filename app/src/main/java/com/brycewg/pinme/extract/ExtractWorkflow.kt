@@ -67,6 +67,11 @@ class ExtractWorkflow(
                 .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_TEMPERATURE, provider)
                 ?.toDoubleOrNull()
                 ?: 0.1
+        val extraParams =
+            dao
+                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_EXTRA_PARAMS, provider)
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
         // 读取自定义系统指令
@@ -90,6 +95,7 @@ class ExtractWorkflow(
                     userPrompt = userPrompt,
                     imageBase64 = imageBase64,
                     temperature = temperature,
+                    extraParamsJson = extraParams,
                 )
             }
         val parsed = parseResult.parsed
@@ -191,6 +197,11 @@ class ExtractWorkflow(
                 .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_TEMPERATURE, provider)
                 ?.toDoubleOrNull()
                 ?: 0.1
+        val extraParams =
+            dao
+                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_EXTRA_PARAMS, provider)
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
 
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
@@ -211,6 +222,7 @@ class ExtractWorkflow(
                     systemPrompt = systemPrompt,
                     userPrompt = text,
                     temperature = temperature,
+                    extraParamsJson = extraParams,
                 )
             }
 

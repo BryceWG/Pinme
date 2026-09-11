@@ -27,6 +27,7 @@ object Constants {
     const val PREF_LLM_MODEL = "llm_model" // 模型 ID
     const val PREF_LLM_TEMPERATURE = "llm_temperature" // 温度 (0.0 - 2.0)
     const val PREF_LLM_CUSTOM_BASE_URL = "llm_custom_base_url" // 自定义 Base URL (到 /v1 即可)
+    const val PREF_LLM_EXTRA_PARAMS = "llm_extra_params" // 自定义推理参数（JSON 对象，追加到请求体）
     const val PREF_CUSTOM_SYSTEM_INSTRUCTION = "custom_system_instruction" // 自定义系统指令（角色描述）
 
     // 默认系统指令

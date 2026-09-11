@@ -28,6 +28,7 @@ class VllmClient(
         imageBase64: String,
         temperature: Double = 0.1,
         maxTokens: Int = 256,
+        extraParamsJson: String? = null,
     ): String =
         withContext(Dispatchers.IO) {
             val url = buildChatCompletionsUrl(baseUrl)
@@ -70,6 +71,7 @@ class VllmClient(
                     )
                     put("temperature", temperature)
                     put("max_tokens", maxTokens)
+                    appendExtraParams(extraParamsJson)
                 }
 
             val requestBody = bodyJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -113,6 +115,7 @@ class VllmClient(
         userPrompt: String,
         temperature: Double = 0.1,
         maxTokens: Int = 256,
+        extraParamsJson: String? = null,
     ): String =
         withContext(Dispatchers.IO) {
             val url = buildChatCompletionsUrl(baseUrl)
@@ -136,6 +139,7 @@ class VllmClient(
                     )
                     put("temperature", temperature)
                     put("max_tokens", maxTokens)
+                    appendExtraParams(extraParamsJson)
                 }
 
             val requestBody = bodyJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -176,6 +180,7 @@ class VllmClient(
         apiKey: String?,
         model: String,
         imageBase64: String,
+        extraParamsJson: String? = null,
     ): String =
         withContext(Dispatchers.IO) {
             val url = buildChatCompletionsUrl(baseUrl)
@@ -215,6 +220,7 @@ class VllmClient(
                             ),
                     )
                     put("max_tokens", 32)
+                    appendExtraParams(extraParamsJson)
                 }
 
             val requestBody = bodyJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
@@ -253,5 +259,19 @@ class VllmClient(
         } else {
             "$trimmed/v1/chat/completions"
         }
+    }
+}
+
+/**
+ * 将用户自定义的推理参数 JSON 对象合并追加到请求体末尾。
+ * 可覆盖 temperature/max_tokens 等内置参数，但保护 model/messages 不被覆盖；
+ * 空值或非法 JSON 静默忽略。
+ */
+private fun JSONObject.appendExtraParams(extraParamsJson: String?) {
+    val trimmed = extraParamsJson?.trim()?.takeIf { it.isNotBlank() } ?: return
+    val extra = runCatching { JSONObject(trimmed) }.getOrNull() ?: return
+    for (key in extra.keys()) {
+        if (key == "model" || key == "messages") continue
+        put(key, extra.get(key))
     }
 }
