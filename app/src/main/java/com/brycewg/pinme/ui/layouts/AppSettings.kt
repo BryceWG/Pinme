@@ -469,7 +469,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 value = customBaseUrl,
                                 onValueChange = { customBaseUrl = it },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = "Base URL",
+                                label = "Base URL（以/v1结尾）",
                                 singleLine = true,
                             )
                             Text(
