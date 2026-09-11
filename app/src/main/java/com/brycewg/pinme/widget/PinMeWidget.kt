@@ -15,9 +15,11 @@ import androidx.core.graphics.toColorInt
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
@@ -54,6 +56,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.brycewg.pinme.MainActivity
+import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.notification.UnifiedNotificationManager
@@ -391,8 +394,10 @@ class PinMeWidget : GlanceAppWidget() {
                 modifier =
                     GlanceModifier
                         .size(32.dp)
-                        .background(buttonColor)
-                        .cornerRadius(8.dp)
+                        .background(
+                            imageProvider = ImageProvider(R.drawable.widget_pin_button_bg),
+                            colorFilter = ColorFilter.tint(ColorProvider(buttonColor)),
+                        )
                         .clickable(
                             onClick =
                                 actionRunCallback<PinToNotificationAction>(
