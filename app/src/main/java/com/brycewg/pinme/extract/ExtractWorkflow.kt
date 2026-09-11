@@ -117,7 +117,7 @@ class ExtractWorkflow(
             dao
                 .getPreference(Constants.PREF_MAX_HISTORY_COUNT)
                 ?.toIntOrNull()
-                ?.coerceIn(1, 20)
+                ?.coerceIn(Constants.MIN_HISTORY_COUNT, Constants.MAX_HISTORY_COUNT)
                 ?: Constants.DEFAULT_MAX_HISTORY_COUNT
         dao.trimExtractsToLimit(maxCount)
 

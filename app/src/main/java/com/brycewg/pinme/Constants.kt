@@ -6,8 +6,10 @@ object Constants {
     const val PREF_TUTORIAL_SEEN = "tutorial_seen"
 
     // 历史记录配置
-    const val PREF_MAX_HISTORY_COUNT = "max_history_count" // 最大历史记录数量 (1-20)
-    const val DEFAULT_MAX_HISTORY_COUNT = 20 // 默认最大历史记录数量
+    const val PREF_MAX_HISTORY_COUNT = "max_history_count" // 最大历史记录数量 (1-100)
+    const val MIN_HISTORY_COUNT = 1
+    const val MAX_HISTORY_COUNT = 100
+    const val DEFAULT_MAX_HISTORY_COUNT = 100 // 默认最大历史记录数量
 
     // 截图压缩配置
     const val SCREENSHOT_MAX_WIDTH = 1080 // 截图最大宽度（按比例缩放）

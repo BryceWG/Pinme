@@ -267,7 +267,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         maxHistoryCount = dao
             .getPreference(Constants.PREF_MAX_HISTORY_COUNT)
             ?.toIntOrNull()
-            ?.coerceIn(1, 20)
+            ?.coerceIn(Constants.MIN_HISTORY_COUNT, Constants.MAX_HISTORY_COUNT)
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
 
         // 加载自定义系统指令
@@ -859,8 +859,8 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 },
                 title = "最大历史记录数量",
                 valueText = maxHistoryCount.toString(),
-                valueRange = 1f..20f,
-                steps = 18,
+                valueRange = Constants.MIN_HISTORY_COUNT.toFloat()..Constants.MAX_HISTORY_COUNT.toFloat(),
+                steps = Constants.MAX_HISTORY_COUNT - Constants.MIN_HISTORY_COUNT - 1,
                 summary = "超出限制的旧记录会被自动删除",
             )
 
