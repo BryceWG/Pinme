@@ -1,5 +1,7 @@
 package com.brycewg.pinme.ui.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,14 +10,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import android.content.Intent
-import android.net.Uri
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 @Composable
-fun TutorialDialog(show: Boolean, onDismiss: () -> Unit) {
+fun TutorialDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     WindowDialog(
         show = show,
@@ -30,21 +33,22 @@ fun TutorialDialog(show: Boolean, onDismiss: () -> Unit) {
                 Text("5. 更多功能请自行探索。")
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    horizontalArrangement = Arrangement.End,
                 ) {
                     TextButton(
                         text = "智谱官网",
                         onClick = {
-                            val intent = Intent(
-                                Intent.ACTION_VIEW,
-                                Uri.parse("https://bigmodel.cn/usercenter/proj-mgmt/apikeys")
-                            )
+                            val intent =
+                                Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://bigmodel.cn/usercenter/proj-mgmt/apikeys"),
+                                )
                             context.startActivity(intent)
-                        }
+                        },
                     )
                     TextButton(text = "关闭", onClick = onDismiss)
                 }
             }
-        }
+        },
     )
 }

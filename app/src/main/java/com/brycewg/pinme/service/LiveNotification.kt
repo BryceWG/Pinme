@@ -16,7 +16,11 @@ class LiveNotification : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, "Service started")
         }
@@ -36,5 +40,4 @@ class LiveNotification : Service() {
             Log.d(TAG, "Service destroyed")
         }
     }
-
 }

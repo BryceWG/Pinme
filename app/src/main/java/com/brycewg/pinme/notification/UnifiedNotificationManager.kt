@@ -30,7 +30,9 @@ import com.brycewg.pinme.capture.NotificationDismissReceiver
 import com.brycewg.pinme.db.DatabaseProvider
 import kotlinx.coroutines.runBlocking
 
-class UnifiedNotificationManager(private val context: Context) {
+class UnifiedNotificationManager(
+    private val context: Context,
+) {
     private val notificationManager = context.getSystemService<NotificationManager>()!!
 
     companion object {
@@ -57,7 +59,9 @@ class UnifiedNotificationManager(private val context: Context) {
         }
 
         /** 活动通知的 extractId 集合，用于跟踪当前显示的通知 */
-        private val activeNotifications = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+        private val activeNotifications =
+            java.util.concurrent.ConcurrentHashMap
+                .newKeySet<Long>()
 
         /**
          * 添加活动通知
@@ -76,23 +80,17 @@ class UnifiedNotificationManager(private val context: Context) {
         /**
          * 检查通知是否活动
          */
-        fun isNotificationActive(extractId: Long): Boolean {
-            return activeNotifications.contains(extractId)
-        }
+        fun isNotificationActive(extractId: Long): Boolean = activeNotifications.contains(extractId)
 
         /**
          * 获取所有活动通知的 extractId
          */
-        fun getActiveNotificationIds(): Set<Long> {
-            return activeNotifications.toSet()
-        }
+        fun getActiveNotificationIds(): Set<Long> = activeNotifications.toSet()
 
         /**
          * 根据 extractId 计算通知 ID
          */
-        fun getNotificationId(extractId: Long): Int {
-            return NOTIFICATION_ID_BASE + (extractId % Int.MAX_VALUE).toInt()
-        }
+        fun getNotificationId(extractId: Long): Int = NOTIFICATION_ID_BASE + (extractId % Int.MAX_VALUE).toInt()
     }
 
     init {
@@ -117,31 +115,32 @@ class UnifiedNotificationManager(private val context: Context) {
         }
     }
 
-            /**
-             * 将正方形图片填充为 2:1 的宽幅图片，防止 BigPictureStyle 裁切
-             */
-            private fun padBitmapToAspectRatio(bitmap: Bitmap): Bitmap {
-                val width = bitmap.width
-                val height = bitmap.height
-                // 目标宽度：高度 * 2
-                val targetWidth = (height * 2).coerceAtLeast(width)
-    
-                if (targetWidth <= width) return bitmap
-    
-                val output = Bitmap.createBitmap(targetWidth, height, Bitmap.Config.ARGB_8888)
-                val canvas = android.graphics.Canvas(output)
-                // 填充白色背景
-                canvas.drawColor(android.graphics.Color.WHITE)
-                // 居中绘制原图
-                val left = (targetWidth - width) / 2f
-                canvas.drawBitmap(bitmap, left, 0f, null)
-                return output
-            }
-    
-            /**
-             * 仅当传入的 ID 对应的通知存在时才取消
-             * @return true 如果通知被取消，false 如果通知不存在
-             */    fun cancelExtractNotificationIfExists(extractId: Long): Boolean {
+    /**
+     * 将正方形图片填充为 2:1 的宽幅图片，防止 BigPictureStyle 裁切
+     */
+    private fun padBitmapToAspectRatio(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        // 目标宽度：高度 * 2
+        val targetWidth = (height * 2).coerceAtLeast(width)
+
+        if (targetWidth <= width) return bitmap
+
+        val output = Bitmap.createBitmap(targetWidth, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(output)
+        // 填充白色背景
+        canvas.drawColor(android.graphics.Color.WHITE)
+        // 居中绘制原图
+        val left = (targetWidth - width) / 2f
+        canvas.drawBitmap(bitmap, left, 0f, null)
+        return output
+    }
+
+    /**
+     * 仅当传入的 ID 对应的通知存在时才取消
+     * @return true 如果通知被取消，false 如果通知不存在
+     */
+    fun cancelExtractNotificationIfExists(extractId: Long): Boolean {
         if (isNotificationActive(extractId)) {
             cancelExtractNotification(extractId)
             return true
@@ -163,23 +162,25 @@ class UnifiedNotificationManager(private val context: Context) {
         emoji: String? = null,
         qrBitmap: Bitmap? = null,
         sourcePackage: String? = null,
-        extractId: Long
+        extractId: Long,
     ) {
         addActiveNotification(extractId)
         val notificationId = getNotificationId(extractId)
         val isParseError = title == Constants.PARSE_ERROR_TITLE
         val isModelError = title == Constants.MODEL_ERROR_TITLE
         val isFailureNotification = isParseError || isModelError
-        val resolvedCapsuleColor = when {
-            isParseError -> Constants.PARSE_ERROR_CAPSULE_COLOR
-            isModelError -> Constants.MODEL_ERROR_CAPSULE_COLOR
-            else -> capsuleColor
-        }
-        val resolvedEmoji = when {
-            isParseError -> Constants.PARSE_ERROR_EMOJI
-            isModelError -> Constants.MODEL_ERROR_EMOJI
-            else -> emoji
-        }
+        val resolvedCapsuleColor =
+            when {
+                isParseError -> Constants.PARSE_ERROR_CAPSULE_COLOR
+                isModelError -> Constants.MODEL_ERROR_CAPSULE_COLOR
+                else -> capsuleColor
+            }
+        val resolvedEmoji =
+            when {
+                isParseError -> Constants.PARSE_ERROR_EMOJI
+                isModelError -> Constants.MODEL_ERROR_EMOJI
+                else -> emoji
+            }
         val resolvedQrBitmap = if (isFailureNotification) null else qrBitmap
         if (isLiveCapsuleCustomizationAvailable()) {
             showMeizuLiveNotification(
@@ -191,7 +192,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 qrBitmap = resolvedQrBitmap,
                 sourcePackage = sourcePackage,
                 notificationId = notificationId,
-                extractId = extractId
+                extractId = extractId,
             )
         } else if (isGoogleLiveNotificationAvailable()) {
             showGoogleLiveNotification(
@@ -201,7 +202,7 @@ class UnifiedNotificationManager(private val context: Context) {
                 qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
                 sourcePackage = sourcePackage,
-                extractId = extractId
+                extractId = extractId,
             )
         } else {
             showNormalNotification(
@@ -211,35 +212,37 @@ class UnifiedNotificationManager(private val context: Context) {
                 qrBitmap = resolvedQrBitmap,
                 notificationId = notificationId,
                 sourcePackage = sourcePackage,
-                extractId = extractId
+                extractId = extractId,
             )
         }
     }
 
     private fun createNotificationChannels() {
-        val liveChannel = NotificationChannel(
-            LIVE_CHANNEL_ID,
-            LIVE_CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Flyme 实况通知频道"
-            enableLights(true)
-            enableVibration(true)
-            setBypassDnd(true)
-            setShowBadge(true)
-        }
+        val liveChannel =
+            NotificationChannel(
+                LIVE_CHANNEL_ID,
+                LIVE_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Flyme 实况通知频道"
+                enableLights(true)
+                enableVibration(true)
+                setBypassDnd(true)
+                setShowBadge(true)
+            }
 
-        val normalChannel = NotificationChannel(
-            NORMAL_CHANNEL_ID,
-            NORMAL_CHANNEL_NAME,
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "PinMe 通知"
-            enableLights(true)
-            enableVibration(true)
-            setBypassDnd(true)
-            setShowBadge(true)
-        }
+        val normalChannel =
+            NotificationChannel(
+                NORMAL_CHANNEL_ID,
+                NORMAL_CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "PinMe 通知"
+                enableLights(true)
+                enableVibration(true)
+                setBypassDnd(true)
+                setShowBadge(true)
+            }
 
         notificationManager.createNotificationChannel(liveChannel)
         notificationManager.createNotificationChannel(normalChannel)
@@ -256,20 +259,20 @@ class UnifiedNotificationManager(private val context: Context) {
             Log.e("LiveUtil", "Missing permission: flyme.permission.READ_NOTIFICATION_LIVE_STATE")
             return false
         }
-        val call: Bundle? = context.contentResolver.call(
-            "content://com.android.systemui.notification.provider".toUri(),
-            "isNotificationLiveEnabled",
-            null as String?,
-            null as Bundle?
-        )
+        val call: Bundle? =
+            context.contentResolver.call(
+                "content://com.android.systemui.notification.provider".toUri(),
+                "isNotificationLiveEnabled",
+                null as String?,
+                null as Bundle?,
+            )
         return call?.getBoolean("result", false) ?: false
     }
 
-    fun isLiveCapsuleCustomizationAvailable(): Boolean {
-        return Build.VERSION.SDK_INT >= 26 && Build.MANUFACTURER.equals("meizu", ignoreCase = true) &&
+    fun isLiveCapsuleCustomizationAvailable(): Boolean =
+        Build.VERSION.SDK_INT >= 26 && Build.MANUFACTURER.equals("meizu", ignoreCase = true) &&
             getFlymeVersion() >= 11 &&
             isFlymeLiveNotificationEnabled(context)
-    }
 
     fun isGoogleLiveNotificationAvailable(): Boolean {
         // Android 16 (API 36) introduces promoted notifications
@@ -300,62 +303,69 @@ class UnifiedNotificationManager(private val context: Context) {
         qrBitmap: Bitmap? = null,
         sourcePackage: String? = null,
         notificationId: Int,
-        extractId: Long
+        extractId: Long,
     ) {
-        val launchIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val launchIntent =
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         // 优先使用传入的颜色，否则使用数据库配置，最后使用默认橙色
-        val capsuleBgColor = customCapsuleColor ?: runBlocking {
-            if (!DatabaseProvider.isInitialized()) {
-                DatabaseProvider.init(context)
-            }
-            val dao = DatabaseProvider.dao()
-            dao.getPreference(Constants.PREF_LIVE_CAPSULE_BG_COLOR)
-        } ?: DEFAULT_CAPSULE_COLOR
+        val capsuleBgColor =
+            customCapsuleColor ?: runBlocking {
+                if (!DatabaseProvider.isInitialized()) {
+                    DatabaseProvider.init(context)
+                }
+                val dao = DatabaseProvider.dao()
+                dao.getPreference(Constants.PREF_LIVE_CAPSULE_BG_COLOR)
+            } ?: DEFAULT_CAPSULE_COLOR
         val background = Color(capsuleBgColor.toColorInt())
         val contentColor = if (background.luminance() > 0.7f) Color.Black else Color.White
 
-        val capsuleBundle = Bundle().apply {
-            putInt("notification.live.capsuleStatus", 1)
-            putInt("notification.live.capsuleType", 1)
-            putString("notification.live.capsuleContent", content)
-            putString("notification.live.capsuleTitle", content)
-            // 使用圆环图标
-            val drawable = ContextCompat.getDrawable(context, R.drawable.ic_capsule_ring)?.mutate()
-            if (drawable != null) {
-                drawable.setTint(contentColor.toArgb())
-                putParcelable("notification.live.capsuleIcon", Icon.createWithBitmap(drawable.toBitmap()))
+        val capsuleBundle =
+            Bundle().apply {
+                putInt("notification.live.capsuleStatus", 1)
+                putInt("notification.live.capsuleType", 1)
+                putString("notification.live.capsuleContent", content)
+                putString("notification.live.capsuleTitle", content)
+                // 使用圆环图标
+                val drawable = ContextCompat.getDrawable(context, R.drawable.ic_capsule_ring)?.mutate()
+                if (drawable != null) {
+                    drawable.setTint(contentColor.toArgb())
+                    putParcelable("notification.live.capsuleIcon", Icon.createWithBitmap(drawable.toBitmap()))
+                }
+                putInt("notification.live.capsuleBgColor", capsuleBgColor.toColorInt())
+                putInt("notification.live.capsuleContentColor", contentColor.toArgb())
             }
-            putInt("notification.live.capsuleBgColor", capsuleBgColor.toColorInt())
-            putInt("notification.live.capsuleContentColor", contentColor.toArgb())
-        }
 
-        val liveBundle = Bundle().apply {
-            putBoolean("is_live", true)
-            putInt("notification.live.operation", 0)
-            putInt("notification.live.type", 10)
-            putBundle("notification.live.capsule", capsuleBundle)
-            putInt("notification.live.contentColor", contentColor.toArgb())
-        }
+        val liveBundle =
+            Bundle().apply {
+                putBoolean("is_live", true)
+                putInt("notification.live.operation", 0)
+                putInt("notification.live.type", 10)
+                putBundle("notification.live.capsule", capsuleBundle)
+                putInt("notification.live.contentColor", contentColor.toArgb())
+            }
 
         // 关闭按钮的 PendingIntent（传递 extractId 以便取消特定通知）
-        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
-        val dismissPendingIntent = PendingIntent.getBroadcast(
-            context,
-            notificationId, // 使用 notificationId 作为 requestCode 确保每个通知有唯一的 PendingIntent
-            dismissIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val dismissIntent =
+            Intent(context, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
+        val dismissPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                notificationId, // 使用 notificationId 作为 requestCode 确保每个通知有唯一的 PendingIntent
+                dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         // 计算撕开区域的混合颜色（40% 胶囊色 + 60% 白色）
         val tearAreaColor = blendWithWhite(capsuleBgColor.toColorInt())
@@ -366,67 +376,71 @@ class UnifiedNotificationManager(private val context: Context) {
 
         // 根据是否有二维码选择不同的布局
         val jumpEnabled = isSourceAppJumpEnabled()
-        val openSourceAppPendingIntent = buildOpenSourceAppPendingIntent(
-            sourcePackage,
-            notificationId,
-            jumpEnabled
-        )
-        val remoteViews = if (qrBitmap != null) {
-            RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
-                setTextViewText(R.id.live_title, title)
-                setTextViewText(R.id.location, content)
-                setTextViewText(R.id.live_time, timeText)
-                setTextViewText(R.id.live_time_inline, timeText)
-                setViewVisibility(R.id.live_time, if (useInlineTime) View.GONE else View.VISIBLE)
-                setViewVisibility(R.id.live_time_inline, if (useInlineTime) View.VISIBLE else View.GONE)
-                setImageViewBitmap(R.id.qr_code_image, qrBitmap)
-                setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
-                if (openSourceAppPendingIntent != null) {
-                    setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
-                    setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
-                    setViewVisibility(R.id.btn_view_source, View.VISIBLE)
-                } else {
-                    setViewVisibility(R.id.btn_view_source, View.GONE)
+        val openSourceAppPendingIntent =
+            buildOpenSourceAppPendingIntent(
+                sourcePackage,
+                notificationId,
+                jumpEnabled,
+            )
+        val remoteViews =
+            if (qrBitmap != null) {
+                RemoteViews(context.packageName, R.layout.live_notification_qrcode_card).apply {
+                    setTextViewText(R.id.live_title, title)
+                    setTextViewText(R.id.location, content)
+                    setTextViewText(R.id.live_time, timeText)
+                    setTextViewText(R.id.live_time_inline, timeText)
+                    setViewVisibility(R.id.live_time, if (useInlineTime) View.GONE else View.VISIBLE)
+                    setViewVisibility(R.id.live_time_inline, if (useInlineTime) View.VISIBLE else View.GONE)
+                    setImageViewBitmap(R.id.qr_code_image, qrBitmap)
+                    setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                    if (openSourceAppPendingIntent != null) {
+                        setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
+                        setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
+                        setViewVisibility(R.id.btn_view_source, View.VISIBLE)
+                    } else {
+                        setViewVisibility(R.id.btn_view_source, View.GONE)
+                    }
+                    // 设置撕开区域和锯齿的颜色
+                    setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
+                    setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
+                    // 动态设置字体大小和行数
+                    setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
+                    setInt(R.id.location, "setMaxLines", maxLines)
                 }
-                // 设置撕开区域和锯齿的颜色
-                setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
-                setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
-                // 动态设置字体大小和行数
-                setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
-                setInt(R.id.location, "setMaxLines", maxLines)
-            }
-        } else {
-            RemoteViews(context.packageName, R.layout.live_notification_card).apply {
-                setTextViewText(R.id.live_title, title)
-                setTextViewText(R.id.location, content)
-                setTextViewText(R.id.live_time, timeText)
-                setTextViewText(R.id.live_icon, emoji ?: "❌")
-                setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
-                if (openSourceAppPendingIntent != null) {
-                    setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
-                    setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
-                    setViewVisibility(R.id.btn_view_source, View.VISIBLE)
-                } else {
-                    setViewVisibility(R.id.btn_view_source, View.GONE)
+            } else {
+                RemoteViews(context.packageName, R.layout.live_notification_card).apply {
+                    setTextViewText(R.id.live_title, title)
+                    setTextViewText(R.id.location, content)
+                    setTextViewText(R.id.live_time, timeText)
+                    setTextViewText(R.id.live_icon, emoji ?: "❌")
+                    setOnClickPendingIntent(R.id.btn_close, dismissPendingIntent)
+                    if (openSourceAppPendingIntent != null) {
+                        setOnClickPendingIntent(R.id.live_title, openSourceAppPendingIntent)
+                        setOnClickPendingIntent(R.id.btn_view_source, openSourceAppPendingIntent)
+                        setViewVisibility(R.id.btn_view_source, View.VISIBLE)
+                    } else {
+                        setViewVisibility(R.id.btn_view_source, View.GONE)
+                    }
+                    // 设置撕开区域和锯齿的颜色
+                    setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
+                    setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
+                    // 动态设置字体大小和行数
+                    setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
+                    setInt(R.id.location, "setMaxLines", maxLines)
                 }
-                // 设置撕开区域和锯齿的颜色
-                setInt(R.id.btn_close, "setBackgroundColor", tearAreaColor)
-                setInt(R.id.ticket_perforation, "setColorFilter", tearAreaColor)
-                // 动态设置字体大小和行数
-                setTextViewTextSize(R.id.location, TypedValue.COMPLEX_UNIT_SP, textSize)
-                setInt(R.id.location, "setMaxLines", maxLines)
             }
-        }
 
-        val notification = Notification.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle(title)
-            .setContentText(content)
-            .addExtras(liveBundle)
-            .setCustomContentView(remoteViews)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(false)
-            .build()
+        val notification =
+            Notification
+                .Builder(context, LIVE_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_pin)
+                .setContentTitle(title)
+                .setContentText(content)
+                .addExtras(liveBundle)
+                .setCustomContentView(remoteViews)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(false)
+                .build()
 
         notificationManager.notify(notificationId, notification)
     }
@@ -438,54 +452,63 @@ class UnifiedNotificationManager(private val context: Context) {
         qrBitmap: Bitmap? = null,
         notificationId: Int,
         sourcePackage: String? = null,
-        extractId: Long
+        extractId: Long,
     ) {
-        val launchIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val launchIntent =
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         // 删除按钮的 PendingIntent
-        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
-        val dismissPendingIntent = PendingIntent.getBroadcast(
-            context,
-            notificationId,
-            dismissIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val dismissIntent =
+            Intent(context, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
+        val dismissPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val header = if (content.isBlank()) title else "$title · $content"
-        val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle(header)
-            .setContentText(content)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setRequestPromotedOngoing(true)
-            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
-            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-            .setShortCriticalText(content.take(6))
-            .addAction(0, "关闭", dismissPendingIntent)
+        val builder =
+            androidx.core.app.NotificationCompat
+                .Builder(context, NORMAL_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_pin)
+                .setContentTitle(header)
+                .setContentText(content)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(false)
+                .setOngoing(true)
+                .setRequestPromotedOngoing(true)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+                .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                .setShortCriticalText(content.take(6))
+                .addAction(0, "关闭", dismissPendingIntent)
 
         // 有二维码时使用 BigPictureStyle，否则使用 BigTextStyle
         if (qrBitmap != null) {
             builder.setStyle(
-                androidx.core.app.NotificationCompat.BigPictureStyle()
+                androidx.core.app.NotificationCompat
+                    .BigPictureStyle()
                     .bigPicture(padBitmapToAspectRatio(qrBitmap))
                     .setBigContentTitle(header)
-                    .setSummaryText(content)
+                    .setSummaryText(content),
             )
         } else {
             builder.setStyle(
-                androidx.core.app.NotificationCompat.BigTextStyle().bigText(content)
+                androidx.core.app.NotificationCompat
+                    .BigTextStyle()
+                    .bigText(content),
             )
         }
 
@@ -499,52 +522,61 @@ class UnifiedNotificationManager(private val context: Context) {
         qrBitmap: Bitmap? = null,
         notificationId: Int,
         sourcePackage: String? = null,
-        extractId: Long
+        extractId: Long,
     ) {
-        val launchIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            launchIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val launchIntent =
+            Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         // 删除按钮的 PendingIntent
-        val dismissIntent = Intent(context, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
-        val dismissPendingIntent = PendingIntent.getBroadcast(
-            context,
-            notificationId,
-            dismissIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val dismissIntent =
+            Intent(context, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
+        val dismissPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                notificationId,
+                dismissIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val header = if (timeText.isBlank()) title else "$title · $timeText"
-        val builder = androidx.core.app.NotificationCompat.Builder(context, NORMAL_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle(header)
-            .setContentText(content)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
-            .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(0, "关闭", dismissPendingIntent)
+        val builder =
+            androidx.core.app.NotificationCompat
+                .Builder(context, NORMAL_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_pin)
+                .setContentTitle(header)
+                .setContentText(content)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(false)
+                .setOngoing(true)
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_MAX)
+                .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                .addAction(0, "关闭", dismissPendingIntent)
 
         // 有二维码时使用 BigPictureStyle，否则使用 BigTextStyle
         if (qrBitmap != null) {
             builder.setStyle(
-                androidx.core.app.NotificationCompat.BigPictureStyle()
+                androidx.core.app.NotificationCompat
+                    .BigPictureStyle()
                     .bigPicture(padBitmapToAspectRatio(qrBitmap))
                     .setBigContentTitle(header)
-                    .setSummaryText(content)
+                    .setSummaryText(content),
             )
         } else {
             builder.setStyle(
-                androidx.core.app.NotificationCompat.BigTextStyle().bigText(content)
+                androidx.core.app.NotificationCompat
+                    .BigTextStyle()
+                    .bigText(content),
             )
         }
 
@@ -554,27 +586,27 @@ class UnifiedNotificationManager(private val context: Context) {
     private fun buildOpenSourceAppPendingIntent(
         sourcePackage: String?,
         notificationId: Int,
-        jumpEnabled: Boolean
+        jumpEnabled: Boolean,
     ): PendingIntent? {
         if (!jumpEnabled) return null
         val packageName = sourcePackage?.trim().orEmpty()
-        val intent = Intent(context, OpenSourceAppReceiver::class.java).apply {
-            putExtra(OpenSourceAppReceiver.EXTRA_PACKAGE_NAME, packageName)
-        }
+        val intent =
+            Intent(context, OpenSourceAppReceiver::class.java).apply {
+                putExtra(OpenSourceAppReceiver.EXTRA_PACKAGE_NAME, packageName)
+            }
         return PendingIntent.getBroadcast(
             context,
             notificationId + 1,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
 
-    private fun isSourceAppJumpEnabled(): Boolean = runBlocking {
-        if (!DatabaseProvider.isInitialized()) {
-            DatabaseProvider.init(context)
+    private fun isSourceAppJumpEnabled(): Boolean =
+        runBlocking {
+            if (!DatabaseProvider.isInitialized()) {
+                DatabaseProvider.init(context)
+            }
+            DatabaseProvider.dao().getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
         }
-        DatabaseProvider.dao().getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
-    }
 }
-
-

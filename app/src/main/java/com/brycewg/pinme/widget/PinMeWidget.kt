@@ -70,16 +70,17 @@ private const val DEFAULT_CAPSULE_COLOR = "#FF9800"
 private val KEY_EXTRACTS_JSON = stringPreferencesKey("extracts_json")
 private val KEY_UPDATE_TIME = stringPreferencesKey("update_time")
 
-private val jsonParser = Json {
-    ignoreUnknownKeys = true
-    coerceInputValues = true
-    encodeDefaults = true
-}
+private val jsonParser =
+    Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        encodeDefaults = true
+    }
 
 @Serializable
 data class WidgetExtractData(
     val items: List<WidgetExtractItem>,
-    val updateTime: String
+    val updateTime: String,
 )
 
 @Serializable
@@ -91,7 +92,7 @@ data class WidgetExtractItem(
     val qrCodeBase64: String? = null,
     val sourcePackage: String? = null,
     val capsuleColor: String? = null,
-    val createdAtMillis: Long
+    val createdAtMillis: Long,
 )
 
 // ActionParameters keys for pin action
@@ -108,12 +109,13 @@ private val PARAM_SOURCE_PACKAGE = ActionParameters.Key<String>("source_package"
  * Build ActionParameters for pin action
  */
 private fun buildPinActionParameters(item: WidgetExtractItem): ActionParameters {
-    val params = mutableListOf<ActionParameters.Pair<out Any>>(
-        PARAM_EXTRACT_ID to item.id,
-        PARAM_TITLE to item.title,
-        PARAM_CONTENT to item.content,
-        PARAM_CREATED_AT to item.createdAtMillis
-    )
+    val params =
+        mutableListOf<ActionParameters.Pair<out Any>>(
+            PARAM_EXTRACT_ID to item.id,
+            PARAM_TITLE to item.title,
+            PARAM_CONTENT to item.content,
+            PARAM_CREATED_AT to item.createdAtMillis,
+        )
 
     item.emoji?.let { params.add(PARAM_EMOJI to it) }
     item.qrCodeBase64?.let { params.add(PARAM_QR_CODE_BASE64 to it) }
@@ -130,7 +132,7 @@ class PinToNotificationAction : ActionCallback {
     override suspend fun onAction(
         context: Context,
         glanceId: GlanceId,
-        parameters: ActionParameters
+        parameters: ActionParameters,
     ) {
         val extractId = parameters[PARAM_EXTRACT_ID] ?: return
         val title = parameters[PARAM_TITLE] ?: return
@@ -143,15 +145,16 @@ class PinToNotificationAction : ActionCallback {
 
         val timeText = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(createdAt))
 
-        val qrBitmap = qrCodeBase64?.let { base64 ->
-            try {
-                val bytes = Base64.decode(base64, Base64.NO_WRAP)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to decode QR code", e)
-                null
+        val qrBitmap =
+            qrCodeBase64?.let { base64 ->
+                try {
+                    val bytes = Base64.decode(base64, Base64.NO_WRAP)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to decode QR code", e)
+                    null
+                }
             }
-        }
 
         val notificationManager = UnifiedNotificationManager(context)
         val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
@@ -164,7 +167,7 @@ class PinToNotificationAction : ActionCallback {
             emoji = emoji,
             qrBitmap = qrBitmap,
             extractId = extractId,
-            sourcePackage = sourcePackage
+            sourcePackage = sourcePackage,
         )
 
         CoroutineScope(Dispatchers.Main).launch {
@@ -177,7 +180,10 @@ class PinToNotificationAction : ActionCallback {
 class PinMeWidget : GlanceAppWidget() {
     override val stateDefinition = PreferencesGlanceStateDefinition
 
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
+    override suspend fun provideGlance(
+        context: Context,
+        id: GlanceId,
+    ) {
         // 在 provideContent 之前先确保数据已加载
         val data = loadDataDirectly(context)
 
@@ -191,8 +197,8 @@ class PinMeWidget : GlanceAppWidget() {
     /**
      * 直接从数据库加载数据，不依赖 preferences state
      */
-    private suspend fun loadDataDirectly(context: Context): WidgetExtractData {
-        return try {
+    private suspend fun loadDataDirectly(context: Context): WidgetExtractData =
+        try {
             if (!DatabaseProvider.isInitialized()) {
                 DatabaseProvider.init(context.applicationContext)
             }
@@ -201,59 +207,62 @@ class PinMeWidget : GlanceAppWidget() {
             val extracts = dao.getLatestExtractsOnce(10)
             val marketItems = dao.getEnabledMarketItems()
 
-            val items = extracts.map { extract ->
-                val matchedItem = findMatchedMarketItem(extract.title, marketItems)
-                WidgetExtractItem(
-                    id = extract.id,
-                    title = extract.title,
-                    content = extract.content,
-                    emoji = extract.emoji ?: matchedItem?.emoji,
-                    qrCodeBase64 = extract.qrCodeBase64,
-                    sourcePackage = extract.sourcePackage,
-                    capsuleColor = matchedItem?.capsuleColor,
-                    createdAtMillis = extract.createdAtMillis
-                )
-            }
+            val items =
+                extracts.map { extract ->
+                    val matchedItem = findMatchedMarketItem(extract.title, marketItems)
+                    WidgetExtractItem(
+                        id = extract.id,
+                        title = extract.title,
+                        content = extract.content,
+                        emoji = extract.emoji ?: matchedItem?.emoji,
+                        qrCodeBase64 = extract.qrCodeBase64,
+                        sourcePackage = extract.sourcePackage,
+                        capsuleColor = matchedItem?.capsuleColor,
+                        createdAtMillis = extract.createdAtMillis,
+                    )
+                }
             val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             WidgetExtractData(items = items, updateTime = updateTime)
         } catch (e: Exception) {
             Log.e(TAG, "loadDataDirectly failed", e)
             WidgetExtractData(items = emptyList(), updateTime = "")
         }
-    }
 
     @Composable
     private fun Content(data: WidgetExtractData) {
         Column(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .background(ComposeColor(0xFFF5F5F5))
-                .cornerRadius(16.dp)
-                .padding(12.dp),
+            modifier =
+                GlanceModifier
+                    .fillMaxSize()
+                    .background(ComposeColor(0xFFF5F5F5))
+                    .cornerRadius(16.dp)
+                    .padding(12.dp),
             horizontalAlignment = Alignment.Horizontal.Start,
-            verticalAlignment = Alignment.Vertical.Top
+            verticalAlignment = Alignment.Vertical.Top,
         ) {
             // Header row
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Vertical.CenterVertically
+                verticalAlignment = Alignment.Vertical.CenterVertically,
             ) {
                 Text(
                     text = "📌 PinMe",
-                    style = TextStyle(
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorProvider(ComposeColor(0xFF333333))
-                    )
+                    style =
+                        TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorProvider(ComposeColor(0xFF333333)),
+                        ),
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
                 if (data.updateTime.isNotBlank()) {
                     Text(
                         text = data.updateTime,
-                        style = TextStyle(
-                            fontSize = 11.sp,
-                            color = ColorProvider(ComposeColor(0xFF888888))
-                        )
+                        style =
+                            TextStyle(
+                                fontSize = 11.sp,
+                                color = ColorProvider(ComposeColor(0xFF888888)),
+                            ),
                     )
                 }
             }
@@ -263,29 +272,31 @@ class PinMeWidget : GlanceAppWidget() {
             if (data.items.isEmpty()) {
                 Box(
                     modifier = GlanceModifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.Horizontal.CenterHorizontally) {
                         Text(
                             text = "暂无识别内容",
-                            style = TextStyle(
-                                fontSize = 14.sp,
-                                color = ColorProvider(ComposeColor(0xFF666666))
-                            )
+                            style =
+                                TextStyle(
+                                    fontSize = 14.sp,
+                                    color = ColorProvider(ComposeColor(0xFF666666)),
+                                ),
                         )
                         Spacer(modifier = GlanceModifier.height(4.dp))
                         Text(
                             text = "点击控制中心磁贴开始",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = ColorProvider(ComposeColor(0xFF999999))
-                            )
+                            style =
+                                TextStyle(
+                                    fontSize = 12.sp,
+                                    color = ColorProvider(ComposeColor(0xFF999999)),
+                                ),
                         )
                     }
                 }
             } else {
                 LazyColumn(
-                    modifier = GlanceModifier.fillMaxSize()
+                    modifier = GlanceModifier.fillMaxSize(),
                 ) {
                     items(data.items, itemId = { it.id }) { item ->
                         Column {
@@ -300,77 +311,84 @@ class PinMeWidget : GlanceAppWidget() {
 
     @Composable
     private fun ExtractItemRow(item: WidgetExtractItem) {
-        val buttonColor = try {
-            val baseColor = ComposeColor((item.capsuleColor ?: DEFAULT_CAPSULE_COLOR).toColorInt())
-            ComposeColor(
-                red = baseColor.red * 0.4f + 0.6f,
-                green = baseColor.green * 0.4f + 0.6f,
-                blue = baseColor.blue * 0.4f + 0.6f,
-                alpha = 1f
-            )
-        } catch (e: Exception) {
-            ComposeColor(0xFFFFE0B2)
-        }
+        val buttonColor =
+            try {
+                val baseColor = ComposeColor((item.capsuleColor ?: DEFAULT_CAPSULE_COLOR).toColorInt())
+                ComposeColor(
+                    red = baseColor.red * 0.4f + 0.6f,
+                    green = baseColor.green * 0.4f + 0.6f,
+                    blue = baseColor.blue * 0.4f + 0.6f,
+                    alpha = 1f,
+                )
+            } catch (e: Exception) {
+                ComposeColor(0xFFFFE0B2)
+            }
 
         Row(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .background(ComposeColor.White)
-                .cornerRadius(10.dp)
-                .padding(8.dp),
-            verticalAlignment = Alignment.Vertical.CenterVertically
+            modifier =
+                GlanceModifier
+                    .fillMaxWidth()
+                    .background(ComposeColor.White)
+                    .cornerRadius(10.dp)
+                    .padding(8.dp),
+            verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
             if (item.emoji != null) {
                 Text(
                     text = item.emoji,
-                    style = TextStyle(fontSize = 20.sp)
+                    style = TextStyle(fontSize = 20.sp),
                 )
                 Spacer(modifier = GlanceModifier.width(8.dp))
             }
 
             Column(
-                modifier = GlanceModifier.defaultWeight()
+                modifier = GlanceModifier.defaultWeight(),
             ) {
                 Text(
                     text = item.title,
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = ColorProvider(ComposeColor(0xFF666666))
-                    ),
-                    maxLines = 1
+                    style =
+                        TextStyle(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorProvider(ComposeColor(0xFF666666)),
+                        ),
+                    maxLines = 1,
                 )
                 Text(
                     text = item.content,
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorProvider(ComposeColor(0xFF333333))
-                    ),
-                    maxLines = 1
+                    style =
+                        TextStyle(
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = ColorProvider(ComposeColor(0xFF333333)),
+                        ),
+                    maxLines = 1,
                 )
             }
 
             Spacer(modifier = GlanceModifier.width(6.dp))
 
             Box(
-                modifier = GlanceModifier
-                    .size(32.dp)
-                    .background(buttonColor)
-                    .cornerRadius(8.dp)
-                    .clickable(
-                        onClick = actionRunCallback<PinToNotificationAction>(
-                            parameters = buildPinActionParameters(item)
-                        )
-                    ),
-                contentAlignment = Alignment.Center
+                modifier =
+                    GlanceModifier
+                        .size(32.dp)
+                        .background(buttonColor)
+                        .cornerRadius(8.dp)
+                        .clickable(
+                            onClick =
+                                actionRunCallback<PinToNotificationAction>(
+                                    parameters = buildPinActionParameters(item),
+                                ),
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = "📌",
-                    style = TextStyle(
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    style =
+                        TextStyle(
+                            fontSize = 16.sp,
+                            textAlign = TextAlign.Center,
+                        ),
                 )
             }
         }
@@ -380,9 +398,10 @@ class PinMeWidget : GlanceAppWidget() {
         suspend fun updateWidgetContent(context: Context) {
             try {
                 val appContext = context.applicationContext
-                val appWidgetIds = AppWidgetManager.getInstance(appContext).getAppWidgetIds(
-                    ComponentName(appContext, PinMeWidgetReceiver::class.java)
-                )
+                val appWidgetIds =
+                    AppWidgetManager.getInstance(appContext).getAppWidgetIds(
+                        ComponentName(appContext, PinMeWidgetReceiver::class.java),
+                    )
                 if (appWidgetIds.isEmpty()) return
 
                 // 直接触发所有小组件更新，让 provideGlance 重新加载数据
@@ -392,7 +411,10 @@ class PinMeWidget : GlanceAppWidget() {
             }
         }
 
-        private fun findMatchedMarketItem(title: String, marketItems: List<MarketItemEntity>): MarketItemEntity? {
+        private fun findMatchedMarketItem(
+            title: String,
+            marketItems: List<MarketItemEntity>,
+        ): MarketItemEntity? {
             val exactMatch = marketItems.find { it.title == title }
             if (exactMatch != null) return exactMatch
             return marketItems.find {

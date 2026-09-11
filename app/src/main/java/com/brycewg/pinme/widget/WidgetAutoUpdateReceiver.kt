@@ -8,7 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class WidgetAutoUpdateReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
@@ -19,4 +22,3 @@ class WidgetAutoUpdateReceiver : BroadcastReceiver() {
         }
     }
 }
-

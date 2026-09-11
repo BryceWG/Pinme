@@ -19,11 +19,10 @@ import kotlin.coroutines.resumeWithException
  */
 data class QrCodeResult(
     val boundingBox: Rect,
-    val croppedBitmap: Bitmap
+    val croppedBitmap: Bitmap,
 )
 
 object QrCodeDetector {
-
     private const val TAG = "QrCodeDetector"
 
     /** 裁剪时的边距比例（避免裁剪太紧） */
@@ -37,48 +36,55 @@ object QrCodeDetector {
      * @param bitmap 原始截图
      * @return 检测到的第一个二维码结果，未检测到返回 null
      */
-    suspend fun detect(bitmap: Bitmap): QrCodeResult? = withContext(Dispatchers.Default) {
-        val scanner = BarcodeScanning.getClient()
-        val image = InputImage.fromBitmap(bitmap, 0)
+    suspend fun detect(bitmap: Bitmap): QrCodeResult? =
+        withContext(Dispatchers.Default) {
+            val scanner = BarcodeScanning.getClient()
+            val image = InputImage.fromBitmap(bitmap, 0)
 
-        try {
-            val barcodes = suspendCancellableCoroutine { cont ->
-                scanner.process(image)
-                    .addOnSuccessListener { cont.resume(it) }
-                    .addOnFailureListener { cont.resumeWithException(it) }
-                    .addOnCanceledListener { cont.cancel() }
+            try {
+                val barcodes =
+                    suspendCancellableCoroutine { cont ->
+                        scanner
+                            .process(image)
+                            .addOnSuccessListener { cont.resume(it) }
+                            .addOnFailureListener { cont.resumeWithException(it) }
+                            .addOnCanceledListener { cont.cancel() }
+                    }
+
+                // 仅处理二维码类型（排除条形码等）
+                val qrCode =
+                    barcodes.firstOrNull {
+                        it.format == Barcode.FORMAT_QR_CODE ||
+                            it.format == Barcode.FORMAT_DATA_MATRIX ||
+                            it.format == Barcode.FORMAT_AZTEC
+                    }
+
+                if (qrCode == null || qrCode.boundingBox == null) {
+                    return@withContext null
+                }
+
+                val boundingBox = qrCode.boundingBox!!
+                val croppedBitmap = cropQrCode(bitmap, boundingBox)
+
+                QrCodeResult(
+                    boundingBox = boundingBox,
+                    croppedBitmap = croppedBitmap,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "QR code detection failed", e)
+                null
+            } finally {
+                scanner.close()
             }
-
-            // 仅处理二维码类型（排除条形码等）
-            val qrCode = barcodes.firstOrNull {
-                it.format == Barcode.FORMAT_QR_CODE ||
-                    it.format == Barcode.FORMAT_DATA_MATRIX ||
-                    it.format == Barcode.FORMAT_AZTEC
-            }
-
-            if (qrCode == null || qrCode.boundingBox == null) {
-                return@withContext null
-            }
-
-            val boundingBox = qrCode.boundingBox!!
-            val croppedBitmap = cropQrCode(bitmap, boundingBox)
-
-            QrCodeResult(
-                boundingBox = boundingBox,
-                croppedBitmap = croppedBitmap
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "QR code detection failed", e)
-            null
-        } finally {
-            scanner.close()
         }
-    }
 
     /**
      * 裁剪二维码区域，带边距
      */
-    private fun cropQrCode(bitmap: Bitmap, boundingBox: Rect): Bitmap {
+    private fun cropQrCode(
+        bitmap: Bitmap,
+        boundingBox: Rect,
+    ): Bitmap {
         // 计算带边距的裁剪区域
         val padding = (minOf(boundingBox.width(), boundingBox.height()) * CROP_PADDING_RATIO).toInt()
         val left = maxOf(0, boundingBox.left - padding)
@@ -86,13 +92,14 @@ object QrCodeDetector {
         val right = minOf(bitmap.width, boundingBox.right + padding)
         val bottom = minOf(bitmap.height, boundingBox.bottom + padding)
 
-        val cropped = Bitmap.createBitmap(
-            bitmap,
-            left,
-            top,
-            right - left,
-            bottom - top
-        )
+        val cropped =
+            Bitmap.createBitmap(
+                bitmap,
+                left,
+                top,
+                right - left,
+                bottom - top,
+            )
 
         // 如果尺寸过大，缩放以满足 RemoteViews 限制
         return if (cropped.width > MAX_CROP_SIZE || cropped.height > MAX_CROP_SIZE) {

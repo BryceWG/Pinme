@@ -21,7 +21,10 @@ abstract class PinMeDao {
     abstract suspend fun insertPreference(preference: PreferenceEntity)
 
     @Transaction
-    open suspend fun setPreference(key: String, value: String) {
+    open suspend fun setPreference(
+        key: String,
+        value: String,
+    ) {
         insertPreference(PreferenceEntity(key, value))
     }
 
@@ -29,10 +32,18 @@ abstract class PinMeDao {
     abstract suspend fun insertExtract(extract: ExtractEntity): Long
 
     @Query("UPDATE extract SET qrCodeBase64 = :qrCodeBase64 WHERE id = :id")
-    abstract suspend fun updateExtractQrCode(id: Long, qrCodeBase64: String)
+    abstract suspend fun updateExtractQrCode(
+        id: Long,
+        qrCodeBase64: String,
+    )
 
     @Query("UPDATE extract SET title = :title, content = :content, emoji = :emoji WHERE id = :id")
-    abstract suspend fun updateExtract(id: Long, title: String, content: String, emoji: String?)
+    abstract suspend fun updateExtract(
+        id: Long,
+        title: String,
+        content: String,
+        emoji: String?,
+    )
 
     @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit")
     abstract fun getLatestExtractsFlow(limit: Int): Flow<List<ExtractEntity>>
@@ -50,7 +61,10 @@ abstract class PinMeDao {
     abstract suspend fun getExtractCount(): Int
 
     @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit OFFSET :offset")
-    abstract suspend fun getExtractsWithOffset(limit: Int, offset: Int): List<ExtractEntity>
+    abstract suspend fun getExtractsWithOffset(
+        limit: Int,
+        offset: Int,
+    ): List<ExtractEntity>
 
     @Query("DELETE FROM extract WHERE id IN (SELECT id FROM extract ORDER BY createdAtMillis ASC LIMIT :deleteCount)")
     abstract suspend fun deleteOldestExtracts(deleteCount: Int)
@@ -122,19 +136,18 @@ abstract class PinMeDao {
             if (existing == null) {
                 insertMarketItem(preset)
             } else {
-                val updated = existing.copy(
-                    title = preset.title,
-                    contentDesc = preset.contentDesc,
-                    outputExample = preset.outputExample,
-                    emoji = preset.emoji,
-                    capsuleColor = preset.capsuleColor,
-                    durationMinutes = preset.durationMinutes,
-                    isEnabled = preset.isEnabled
-                )
+                val updated =
+                    existing.copy(
+                        title = preset.title,
+                        contentDesc = preset.contentDesc,
+                        outputExample = preset.outputExample,
+                        emoji = preset.emoji,
+                        capsuleColor = preset.capsuleColor,
+                        durationMinutes = preset.durationMinutes,
+                        isEnabled = preset.isEnabled,
+                    )
                 updateMarketItem(updated)
             }
         }
     }
 }
-
-

@@ -40,11 +40,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -149,8 +149,7 @@ fun ExtractHome() {
             val totalItems = layoutInfo.totalItemsCount
             val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
             lastVisibleItem >= totalItems - 2 && totalItems > 0
-        }
-            .distinctUntilChanged()
+        }.distinctUntilChanged()
             .collectLatest { shouldLoadMore ->
                 if (shouldLoadMore && hasMore && !isLoading) {
                     loadMore()
@@ -162,22 +161,23 @@ fun ExtractHome() {
         // 列表内容
         LazyColumn(
             state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             if (extracts.isEmpty() && !isLoading) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("暂无记录", style = MiuixTheme.textStyles.main)
                             Text(
                                 "点一下磁贴或点击右下角按钮添加。",
                                 style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }
@@ -203,7 +203,7 @@ fun ExtractHome() {
                                 dao.deleteExtractById(item.id)
                             }
                             Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
-                        }
+                        },
                     )
                 }
 
@@ -211,17 +211,18 @@ fun ExtractHome() {
                 if (hasMore) {
                     item {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
                             if (isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             } else {
                                 TextButton(
                                     text = "加载更多",
-                                    onClick = { scope.launch { loadMore() } }
+                                    onClick = { scope.launch { loadMore() } },
                                 )
                             }
                         }
@@ -251,9 +252,10 @@ fun ExtractHome() {
                 fabExpanded = false
                 actions?.onTakePhoto?.invoke()
             },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
         )
     }
 
@@ -264,7 +266,7 @@ fun ExtractHome() {
         onConfirm = { title, content, emoji ->
             actions?.onManualAdd?.invoke(title, content, emoji)
             showManualDialog = false
-        }
+        },
     )
 
     // 编辑对话框
@@ -282,83 +284,94 @@ fun ExtractHome() {
                 Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
             }
             showEditDialog = false
-        }
+        },
     )
 }
 
 private enum class ExtractCardSwipeState {
     Closed,
-    Open
+    Open,
 }
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: String?, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ExtractCard(
+    item: ExtractEntity,
+    emoji: String?,
+    capsuleColor: String?,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val context = LocalContext.current
     val time = DateFormat.format("MM-dd HH:mm", item.createdAtMillis).toString()
     val pinTimeText = DateFormat.format("HH:mm", item.createdAtMillis).toString()
     val density = LocalDensity.current
     val revealWidthPx = with(density) { 72.dp.toPx() }
 
-    val swipeState = remember(revealWidthPx) {
-        AnchoredDraggableState(
-            initialValue = ExtractCardSwipeState.Closed,
-            anchors = DraggableAnchors {
-                ExtractCardSwipeState.Closed at 0f
-                ExtractCardSwipeState.Open at revealWidthPx
-            }
+    val swipeState =
+        remember(revealWidthPx) {
+            AnchoredDraggableState(
+                initialValue = ExtractCardSwipeState.Closed,
+                anchors =
+                    DraggableAnchors {
+                        ExtractCardSwipeState.Closed at 0f
+                        ExtractCardSwipeState.Open at revealWidthPx
+                    },
+            )
+        }
+    val swipeFlingBehavior =
+        AnchoredDraggableDefaults.flingBehavior(
+            state = swipeState,
+            positionalThreshold = { distance: Float -> distance * 0.5f },
         )
-    }
-    val swipeFlingBehavior = AnchoredDraggableDefaults.flingBehavior(
-        state = swipeState,
-        positionalThreshold = { distance: Float -> distance * 0.5f }
-    )
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .clip(RoundedCornerShape(CardDefaults.CornerRadius))
-                .background(MiuixTheme.colorScheme.errorContainer)
-                .padding(start = 12.dp),
-            contentAlignment = Alignment.CenterStart
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .clip(RoundedCornerShape(CardDefaults.CornerRadius))
+                    .background(MiuixTheme.colorScheme.errorContainer)
+                    .padding(start = 12.dp),
+            contentAlignment = Alignment.CenterStart,
         ) {
             IconButton(onClick = onDelete) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = "删除",
-                    tint = MiuixTheme.colorScheme.onErrorContainer
+                    tint = MiuixTheme.colorScheme.onErrorContainer,
                 )
             }
         }
 
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(swipeState.offset.roundToInt(), 0) }
-                .anchoredDraggable(
-                    state = swipeState,
-                    orientation = Orientation.Horizontal,
-                    flingBehavior = swipeFlingBehavior
-                )
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(swipeState.offset.roundToInt(), 0) }
+                    .anchoredDraggable(
+                        state = swipeState,
+                        orientation = Orientation.Horizontal,
+                        flingBehavior = swipeFlingBehavior,
+                    ),
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 左侧 emoji 图标
                 if (emoji != null) {
                     Text(
                         text = emoji,
                         fontSize = 32.sp,
-                        modifier = Modifier.padding(end = 12.dp)
+                        modifier = Modifier.padding(end = 12.dp),
                     )
                 }
 
                 // 右侧内容区域
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -366,28 +379,29 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                             Text(
                                 time,
                                 style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                         IconButton(onClick = onEdit) {
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
-                                contentDescription = "编辑"
+                                contentDescription = "编辑",
                             )
                         }
                         IconButton(onClick = {
                             val notificationManager = UnifiedNotificationManager(context)
                             val isLive = notificationManager.isLiveCapsuleCustomizationAvailable()
                             // 解码二维码图片（如果有）
-                            val qrBitmap = item.qrCodeBase64?.let { base64 ->
-                                try {
-                                    val bytes = Base64.decode(base64, Base64.NO_WRAP)
-                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                } catch (e: Exception) {
-                                    null
+                            val qrBitmap =
+                                item.qrCodeBase64?.let { base64 ->
+                                    try {
+                                        val bytes = Base64.decode(base64, Base64.NO_WRAP)
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
                                 }
-                            }
                             notificationManager.showExtractNotification(
                                 title = item.title,
                                 content = item.content,
@@ -396,20 +410,20 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                                 emoji = emoji,
                                 qrBitmap = qrBitmap,
                                 extractId = item.id,
-                                sourcePackage = item.sourcePackage
+                                sourcePackage = item.sourcePackage,
                             )
                             val toastText = if (isLive) "已挂到实况通知" else "已发送通知"
                             Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
                         }) {
                             Icon(
                                 imageVector = Icons.Rounded.PushPin,
-                                contentDescription = "Pin到通知"
+                                contentDescription = "Pin到通知",
                             )
                         }
                         IconButton(onClick = { copyToClipboard(context, item.content) }) {
                             Icon(
                                 imageVector = Icons.Rounded.ContentCopy,
-                                contentDescription = "复制"
+                                contentDescription = "复制",
                             )
                         }
                     }
@@ -421,7 +435,10 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
     }
 }
 
-private fun copyToClipboard(context: Context, text: String) {
+private fun copyToClipboard(
+    context: Context,
+    text: String,
+) {
     val clipboard = context.getSystemService<ClipboardManager>() ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText("PinMe", text))
     Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()

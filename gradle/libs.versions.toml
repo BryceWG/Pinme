@@ -8,6 +8,8 @@ espressoCore = "3.7.0"
 kotlinxSerializationJson = "1.11.0"
 miuix = "0.9.4-rc01"
 ksp = "2.3.12"
+ktlintPlugin = "14.2.0"
+ktlintCli = "1.8.0"
 lifecycleRuntimeKtx = "2.9.4"
 composeBom = "2025.10.00"
 roomRuntime = "2.8.2"
@@ -57,5 +59,6 @@ mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning"
 android-application = { id = "com.android.application", version.ref = "agp" }
 legacy-kapt = { id = "com.android.legacy-kapt", version.ref = "agp" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintPlugin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

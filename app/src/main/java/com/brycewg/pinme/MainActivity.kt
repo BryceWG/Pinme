@@ -24,10 +24,10 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -63,44 +63,47 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import java.io.File
 
 class MainActivity : ComponentActivity() {
-
     // 相机拍照临时文件 URI
     private var pendingCameraUri: Uri? = null
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        // 无论用户是否授权，都继续运行应用
-        // 用户可以稍后在设置中手动授权
-    }
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { _ ->
+            // 无论用户是否授权，都继续运行应用
+            // 用户可以稍后在设置中手动授权
+        }
 
     // 图库选择器
-    private val pickImageLauncher = registerForActivityResult(
-        ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        uri?.let { processImageUri(it, "gallery") }
-    }
+    private val pickImageLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.PickVisualMedia(),
+        ) { uri ->
+            uri?.let { processImageUri(it, "gallery") }
+        }
 
     // 相机拍摄器
-    private val takePictureLauncher = registerForActivityResult(
-        ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success) {
-            pendingCameraUri?.let { processImageUri(it, "camera") }
+    private val takePictureLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.TakePicture(),
+        ) { success ->
+            if (success) {
+                pendingCameraUri?.let { processImageUri(it, "camera") }
+            }
+            pendingCameraUri = null
         }
-        pendingCameraUri = null
-    }
 
     // 相机权限请求
-    private val cameraPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            launchCamera()
-        } else {
-            Toast.makeText(this, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
+    private val cameraPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                launchCamera()
+            } else {
+                Toast.makeText(this, "需要相机权限才能拍照", Toast.LENGTH_SHORT).show()
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,19 +122,20 @@ class MainActivity : ComponentActivity() {
         checkAccessibilityServiceIfNeeded()
 
         setContent {
-            val addRecordActions = remember {
-                AddRecordActions(
-                    onManualAdd = { title, content, emoji ->
-                        saveManualRecord(title, content, emoji)
-                    },
-                    onPickImage = {
-                        launchImagePicker()
-                    },
-                    onTakePhoto = {
-                        requestCameraPermissionAndLaunch()
-                    }
-                )
-            }
+            val addRecordActions =
+                remember {
+                    AddRecordActions(
+                        onManualAdd = { title, content, emoji ->
+                            saveManualRecord(title, content, emoji)
+                        },
+                        onPickImage = {
+                            launchImagePicker()
+                        },
+                        onTakePhoto = {
+                            requestCameraPermissionAndLaunch()
+                        },
+                    )
+                }
 
             PinMeTheme {
                 CompositionLocalProvider(LocalAddRecordActions provides addRecordActions) {
@@ -146,7 +150,7 @@ class MainActivity : ComponentActivity() {
     // 启动图库选择器
     private fun launchImagePicker() {
         pickImageLauncher.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
         )
     }
 
@@ -163,58 +167,73 @@ class MainActivity : ComponentActivity() {
 
     // 启动相机
     private fun launchCamera() {
-        val photoFile = File(cacheDir, "photos").apply { mkdirs() }
-            .let { File(it, "capture_${System.currentTimeMillis()}.jpg") }
+        val photoFile =
+            File(cacheDir, "photos")
+                .apply { mkdirs() }
+                .let { File(it, "capture_${System.currentTimeMillis()}.jpg") }
 
-        pendingCameraUri = FileProvider.getUriForFile(
-            this,
-            "${packageName}.fileprovider",
-            photoFile
-        )
+        pendingCameraUri =
+            FileProvider.getUriForFile(
+                this,
+                "$packageName.fileprovider",
+                photoFile,
+            )
 
         takePictureLauncher.launch(pendingCameraUri!!)
     }
 
     // 处理选中的图片 URI
-    private fun processImageUri(uri: Uri, source: String, sourcePackage: String? = null) {
+    private fun processImageUri(
+        uri: Uri,
+        source: String,
+        sourcePackage: String? = null,
+    ) {
         lifecycleScope.launch {
             Toast.makeText(this@MainActivity, "正在识别图片...", Toast.LENGTH_SHORT).show()
 
             try {
                 val shouldRecordPackage = SourceAppTracker.isEnabled(this@MainActivity)
-                val resolvedSourcePackage = if (source == "share" && shouldRecordPackage) {
-                    sourcePackage
-                } else {
-                    null
-                }
-                val bitmap = withContext(Dispatchers.IO) {
-                    contentResolver.openInputStream(uri)?.use { stream ->
-                        BitmapFactory.decodeStream(stream)
-                    } ?: throw IllegalStateException("无法读取图片")
-                }
+                val resolvedSourcePackage =
+                    if (source == "share" && shouldRecordPackage) {
+                        sourcePackage
+                    } else {
+                        null
+                    }
+                val bitmap =
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openInputStream(uri)?.use { stream ->
+                            BitmapFactory.decodeStream(stream)
+                        } ?: throw IllegalStateException("无法读取图片")
+                    }
 
                 // 并行执行二维码检测和 LLM 识别
-                val (qrResult, extract) = coroutineScope {
-                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                    val extractDeferred = async {
-                        ExtractWorkflow(this@MainActivity).processScreenshot(bitmap, resolvedSourcePackage)
+                val (qrResult, extract) =
+                    coroutineScope {
+                        val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                        val extractDeferred =
+                            async {
+                                ExtractWorkflow(this@MainActivity).processScreenshot(bitmap, resolvedSourcePackage)
+                            }
+                        qrDeferred.await() to extractDeferred.await()
                     }
-                    qrDeferred.await() to extractDeferred.await()
-                }
 
                 // 如果检测到二维码，保存到数据库
                 if (qrResult != null) {
-                    val qrBase64 = withContext(Dispatchers.IO) {
-                        qrResult.croppedBitmap.toJpegBase64()
-                    }
+                    val qrBase64 =
+                        withContext(Dispatchers.IO) {
+                            qrResult.croppedBitmap.toJpegBase64()
+                        }
                     DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
                 }
 
                 // 获取市场类型配置用于通知
-                val marketItem = withContext(Dispatchers.IO) {
-                    DatabaseProvider.dao().getEnabledMarketItems()
-                        .find { it.title == extract.title }
-                }
+                val marketItem =
+                    withContext(Dispatchers.IO) {
+                        DatabaseProvider
+                            .dao()
+                            .getEnabledMarketItems()
+                            .find { it.title == extract.title }
+                    }
 
                 // 显示通知
                 val notificationManager = UnifiedNotificationManager(this@MainActivity)
@@ -225,62 +244,76 @@ class MainActivity : ComponentActivity() {
                     emoji = extract.emoji ?: marketItem?.emoji,
                     qrBitmap = qrResult?.croppedBitmap,
                     extractId = extract.id,
-                    sourcePackage = extract.sourcePackage
+                    sourcePackage = extract.sourcePackage,
                 )
 
                 // 更新小组件
                 PinMeWidget.updateWidgetContent(this@MainActivity)
 
                 val qrInfo = if (qrResult != null) " [含二维码]" else ""
-                Toast.makeText(
-                    this@MainActivity,
-                    "${extract.title}: ${extract.content}$qrInfo",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        this@MainActivity,
+                        "${extract.title}: ${extract.content}$qrInfo",
+                        Toast.LENGTH_SHORT,
+                    ).show()
 
                 bitmap.recycle()
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "识别失败：${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        this@MainActivity,
+                        "识别失败：${e.message}",
+                        Toast.LENGTH_SHORT,
+                    ).show()
             }
         }
     }
 
     // 保存手动添加的记录
-    private fun saveManualRecord(title: String, content: String, emoji: String?) {
+    private fun saveManualRecord(
+        title: String,
+        content: String,
+        emoji: String?,
+    ) {
         lifecycleScope.launch {
             try {
-                val entity = ExtractEntity(
-                    title = title,
-                    content = content,
-                    emoji = emoji,
-                    source = "manual",
-                    rawModelOutput = "",
-                    createdAtMillis = System.currentTimeMillis()
-                )
-                val id = withContext(Dispatchers.IO) {
-                    DatabaseProvider.dao().insertExtract(entity)
-                }
+                val entity =
+                    ExtractEntity(
+                        title = title,
+                        content = content,
+                        emoji = emoji,
+                        source = "manual",
+                        rawModelOutput = "",
+                        createdAtMillis = System.currentTimeMillis(),
+                    )
+                val id =
+                    withContext(Dispatchers.IO) {
+                        DatabaseProvider.dao().insertExtract(entity)
+                    }
 
                 // 获取市场类型配置用于通知
-                val marketItem = withContext(Dispatchers.IO) {
-                    DatabaseProvider.dao().getEnabledMarketItems()
-                        .find { it.title == title }
-                }
+                val marketItem =
+                    withContext(Dispatchers.IO) {
+                        DatabaseProvider
+                            .dao()
+                            .getEnabledMarketItems()
+                            .find { it.title == title }
+                    }
 
                 // 显示通知
                 val notificationManager = UnifiedNotificationManager(this@MainActivity)
-                val timeText = android.text.format.DateFormat.format("HH:mm", entity.createdAtMillis).toString()
+                val timeText =
+                    android.text.format.DateFormat
+                        .format("HH:mm", entity.createdAtMillis)
+                        .toString()
                 notificationManager.showExtractNotification(
                     title = title,
                     content = content,
                     timeText = timeText,
                     capsuleColor = marketItem?.capsuleColor,
                     emoji = emoji ?: marketItem?.emoji,
-                    extractId = id
+                    extractId = id,
                 )
 
                 // 更新小组件
@@ -290,11 +323,12 @@ class MainActivity : ComponentActivity() {
                 val toastText = if (isLive) "已添加并挂到实况通知" else "已添加并发送通知"
                 Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "添加失败：${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        this@MainActivity,
+                        "添加失败：${e.message}",
+                        Toast.LENGTH_SHORT,
+                    ).show()
             }
         }
     }
@@ -322,12 +356,13 @@ class MainActivity : ComponentActivity() {
 
     private fun checkAccessibilityServiceIfNeeded() {
         lifecycleScope.launch {
-            val (useRootCapture, useAccessibilityCapture) = withContext(Dispatchers.IO) {
-                val dao = DatabaseProvider.dao()
-                val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE)?.toBoolean() ?: false
-                val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE)?.toBoolean() ?: false
-                rootEnabled to accessibility
-            }
+            val (useRootCapture, useAccessibilityCapture) =
+                withContext(Dispatchers.IO) {
+                    val dao = DatabaseProvider.dao()
+                    val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE)?.toBoolean() ?: false
+                    val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE)?.toBoolean() ?: false
+                    rootEnabled to accessibility
+                }
 
             // 如果开启了无障碍截图模式，但无障碍服务未启用，则跳转到设置页面
             if (!useRootCapture &&
@@ -341,9 +376,10 @@ class MainActivity : ComponentActivity() {
 
     private fun applyExcludeFromRecentsIfNeeded() {
         lifecycleScope.launch {
-            val excludeFromRecents = withContext(Dispatchers.IO) {
-                DatabaseProvider.dao().getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
-            }
+            val excludeFromRecents =
+                withContext(Dispatchers.IO) {
+                    DatabaseProvider.dao().getPreference(Constants.PREF_EXCLUDE_FROM_RECENTS) == "true"
+                }
 
             if (excludeFromRecents) {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -358,8 +394,9 @@ class MainActivity : ComponentActivity() {
         val shareSourcePackage = resolveShareSourcePackage(intent)
 
         if (type.startsWith("image/")) {
-            val sharedUri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-                ?: intent.clipData?.getItemAt(0)?.uri
+            val sharedUri =
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                    ?: intent.clipData?.getItemAt(0)?.uri
             if (sharedUri != null) {
                 processImageUri(sharedUri, "share", shareSourcePackage)
             } else {
@@ -369,9 +406,11 @@ class MainActivity : ComponentActivity() {
         }
 
         if (type.startsWith("text/")) {
-            val sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)
-                ?.toString()
-                ?.trim()
+            val sharedText =
+                intent
+                    .getCharSequenceExtra(Intent.EXTRA_TEXT)
+                    ?.toString()
+                    ?.trim()
             if (!sharedText.isNullOrBlank()) {
                 processSharedText(sharedText, shareSourcePackage)
             } else {
@@ -381,11 +420,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun resolveShareSourcePackage(intent: Intent?): String? {
-        val referrerUri = intent?.let {
-            IntentCompat.getParcelableExtra(it, Intent.EXTRA_REFERRER, Uri::class.java)
-        }
-            ?: intent?.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let { Uri.parse(it) }
-            ?: referrer
+        val referrerUri =
+            intent?.let {
+                IntentCompat.getParcelableExtra(it, Intent.EXTRA_REFERRER, Uri::class.java)
+            }
+                ?: intent?.getStringExtra(Intent.EXTRA_REFERRER_NAME)?.let { Uri.parse(it) }
+                ?: referrer
         return parseAndroidAppReferrer(referrerUri)
     }
 
@@ -399,37 +439,49 @@ class MainActivity : ComponentActivity() {
         return schemeSpecific?.substringBefore("/")?.takeIf { it.isNotBlank() }
     }
 
-    private fun processSharedText(sharedText: String, sourcePackage: String?) {
+    private fun processSharedText(
+        sharedText: String,
+        sourcePackage: String?,
+    ) {
         lifecycleScope.launch {
             Toast.makeText(this@MainActivity, "正在识别文本...", Toast.LENGTH_SHORT).show()
 
             try {
                 val shouldRecordPackage = SourceAppTracker.isEnabled(this@MainActivity)
                 val resolvedSourcePackage = if (shouldRecordPackage) sourcePackage else null
-                val parsed = withContext(Dispatchers.IO) {
-                    ExtractWorkflow(this@MainActivity).extractFromText(sharedText)
-                }
+                val parsed =
+                    withContext(Dispatchers.IO) {
+                        ExtractWorkflow(this@MainActivity).extractFromText(sharedText)
+                    }
                 val createdAt = System.currentTimeMillis()
-                val entity = ExtractEntity(
-                    title = parsed.title,
-                    content = parsed.content,
-                    emoji = parsed.emoji,
-                    source = "share_text",
-                    sourcePackage = resolvedSourcePackage,
-                    rawModelOutput = "",
-                    createdAtMillis = createdAt
-                )
-                val id = withContext(Dispatchers.IO) {
-                    DatabaseProvider.dao().insertExtract(entity)
-                }
+                val entity =
+                    ExtractEntity(
+                        title = parsed.title,
+                        content = parsed.content,
+                        emoji = parsed.emoji,
+                        source = "share_text",
+                        sourcePackage = resolvedSourcePackage,
+                        rawModelOutput = "",
+                        createdAtMillis = createdAt,
+                    )
+                val id =
+                    withContext(Dispatchers.IO) {
+                        DatabaseProvider.dao().insertExtract(entity)
+                    }
 
-                val marketItem = withContext(Dispatchers.IO) {
-                    DatabaseProvider.dao().getEnabledMarketItems()
-                        .find { it.title == entity.title }
-                }
+                val marketItem =
+                    withContext(Dispatchers.IO) {
+                        DatabaseProvider
+                            .dao()
+                            .getEnabledMarketItems()
+                            .find { it.title == entity.title }
+                    }
 
                 val notificationManager = UnifiedNotificationManager(this@MainActivity)
-                val timeText = android.text.format.DateFormat.format("HH:mm", createdAt).toString()
+                val timeText =
+                    android.text.format.DateFormat
+                        .format("HH:mm", createdAt)
+                        .toString()
                 notificationManager.showExtractNotification(
                     title = entity.title,
                     content = entity.content,
@@ -437,7 +489,7 @@ class MainActivity : ComponentActivity() {
                     capsuleColor = marketItem?.capsuleColor,
                     emoji = entity.emoji ?: marketItem?.emoji,
                     extractId = id,
-                    sourcePackage = entity.sourcePackage
+                    sourcePackage = entity.sourcePackage,
                 )
 
                 PinMeWidget.updateWidgetContent(this@MainActivity)
@@ -446,11 +498,12 @@ class MainActivity : ComponentActivity() {
                 val toastText = if (isLive) "已识别并挂到实况通知" else "已识别并发送通知"
                 Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(
-                    this@MainActivity,
-                    "识别失败：${e.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast
+                    .makeText(
+                        this@MainActivity,
+                        "识别失败：${e.message}",
+                        Toast.LENGTH_SHORT,
+                    ).show()
             }
         }
     }
@@ -472,11 +525,12 @@ private fun AppRoot() {
     val scope = rememberCoroutineScope()
     var selected by remember { mutableIntStateOf(0) }
     var showTutorial by remember { mutableStateOf(false) }
-    val title = when (selected) {
-        0 -> "PinMe"
-        1 -> "市场"
-        else -> "设置"
-    }
+    val title =
+        when (selected) {
+            0 -> "PinMe"
+            1 -> "市场"
+            else -> "设置"
+        }
 
     LaunchedEffect(Unit) {
         val hasSeenTutorial = dao.getPreference(Constants.PREF_TUTORIAL_SEEN) == "true"
@@ -500,22 +554,22 @@ private fun AppRoot() {
                     selected = selected == 0,
                     onClick = { selected = 0 },
                     icon = Icons.Rounded.History,
-                    label = "记录"
+                    label = "记录",
                 )
                 NavigationBarItem(
                     selected = selected == 1,
                     onClick = { selected = 1 },
                     icon = Icons.Rounded.Storefront,
-                    label = "市场"
+                    label = "市场",
                 )
                 NavigationBarItem(
                     selected = selected == 2,
                     onClick = { selected = 2 },
                     icon = Icons.Rounded.Settings,
-                    label = "设置"
+                    label = "设置",
                 )
             }
-        }
+        },
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
             when (selected) {

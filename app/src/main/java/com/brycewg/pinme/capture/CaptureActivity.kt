@@ -11,7 +11,6 @@ import com.brycewg.pinme.db.DatabaseProvider
 import kotlinx.coroutines.runBlocking
 
 class CaptureActivity : ComponentActivity() {
-
     private val mediaProjectionManager: MediaProjectionManager by lazy {
         getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
@@ -33,23 +32,24 @@ class CaptureActivity : ComponentActivity() {
             ScreenCaptureService.start(this, result.resultCode, data)
             finishAndRemoveTask()
             @Suppress("DEPRECATION")
-            overridePendingTransition(0, 0)  // 禁用退出动画
+            overridePendingTransition(0, 0) // 禁用退出动画
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // 检查截图模式偏好
-        val (useRootCapture, useAccessibilityCapture) = runBlocking {
-            if (!DatabaseProvider.isInitialized()) {
-                DatabaseProvider.init(this@CaptureActivity)
+        val (useRootCapture, useAccessibilityCapture) =
+            runBlocking {
+                if (!DatabaseProvider.isInitialized()) {
+                    DatabaseProvider.init(this@CaptureActivity)
+                }
+                val dao = DatabaseProvider.dao()
+                val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE) == "true"
+                val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
+                captureToastEnabled = dao.getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
+                rootEnabled to accessibility
             }
-            val dao = DatabaseProvider.dao()
-            val rootEnabled = dao.getPreference(Constants.PREF_USE_ROOT_CAPTURE) == "true"
-            val accessibility = dao.getPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE) == "true"
-            captureToastEnabled = dao.getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
-            rootEnabled to accessibility
-        }
 
         // Root 截图（与无障碍互斥，优先级更高）
         if (useRootCapture) {

@@ -5,18 +5,16 @@ import org.json.JSONObject
 data class ExtractParsed(
     val title: String,
     val content: String,
-    val emoji: String? = null
+    val emoji: String? = null,
 )
 
 data class ExtractParseResult(
     val parsed: ExtractParsed,
-    val parsedFromJson: Boolean
+    val parsedFromJson: Boolean,
 )
 
 object ExtractParsing {
-    fun parseModelOutput(modelOutput: String): ExtractParsed {
-        return parseModelOutputWithStatus(modelOutput).parsed
-    }
+    fun parseModelOutput(modelOutput: String): ExtractParsed = parseModelOutputWithStatus(modelOutput).parsed
 
     fun parseModelOutputWithStatus(modelOutput: String): ExtractParseResult {
         val trimmed = modelOutput.trim()
@@ -28,17 +26,18 @@ object ExtractParsing {
             if (title.isNotBlank() && content.isNotBlank()) {
                 return ExtractParseResult(
                     parsed = ExtractParsed(title = title, content = content, emoji = emoji),
-                    parsedFromJson = true
+                    parsedFromJson = true,
                 )
             }
         }
 
         return ExtractParseResult(
-            parsed = ExtractParsed(
-                title = "识别结果",
-                content = trimmed
-            ),
-            parsedFromJson = false
+            parsed =
+                ExtractParsed(
+                    title = "识别结果",
+                    content = trimmed,
+                ),
+            parsedFromJson = false,
         )
     }
 
@@ -57,7 +56,10 @@ object ExtractParsing {
         var depth = 0
         for (i in start until text.length) {
             when (text[i]) {
-                '{' -> depth++
+                '{' -> {
+                    depth++
+                }
+
                 '}' -> {
                     depth--
                     if (depth == 0) return text.substring(start, i + 1)

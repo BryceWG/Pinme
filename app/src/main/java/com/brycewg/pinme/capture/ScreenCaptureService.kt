@@ -27,10 +27,9 @@ import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
-import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.qrcode.QrCodeDetector
 import com.brycewg.pinme.usage.SourceAppTracker
-import java.io.ByteArrayOutputStream
+import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -42,11 +41,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 
 class ScreenCaptureService : Service() {
-
     companion object {
         private const val TAG = "ScreenCaptureService"
         private const val CHANNEL_ID = "screen_capture_channel"
@@ -54,11 +53,16 @@ class ScreenCaptureService : Service() {
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
 
-        fun start(context: Context, resultCode: Int, resultData: Intent) {
-            val intent = Intent(context, ScreenCaptureService::class.java).apply {
-                putExtra(EXTRA_RESULT_CODE, resultCode)
-                putExtra(EXTRA_RESULT_DATA, resultData)
-            }
+        fun start(
+            context: Context,
+            resultCode: Int,
+            resultData: Intent,
+        ) {
+            val intent =
+                Intent(context, ScreenCaptureService::class.java).apply {
+                    putExtra(EXTRA_RESULT_CODE, resultCode)
+                    putExtra(EXTRA_RESULT_DATA, resultData)
+                }
             context.startForegroundService(intent)
         }
     }
@@ -76,7 +80,11 @@ class ScreenCaptureService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val resultData = intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
 
@@ -100,28 +108,32 @@ class ScreenCaptureService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "截屏服务",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "用于截屏识别的前台服务"
-            setShowBadge(false)
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "截屏服务",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "用于截屏识别的前台服务"
+                setShowBadge(false)
+            }
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun createNotification(): Notification {
-        return Notification.Builder(this, CHANNEL_ID)
+    private fun createNotification(): Notification =
+        Notification
+            .Builder(this, CHANNEL_ID)
             .setContentTitle("PinMe")
             .setContentText("正在截屏识别…")
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setOngoing(true)
             .build()
-    }
 
-    private suspend fun performCapture(resultCode: Int, resultData: Intent) {
+    private suspend fun performCapture(
+        resultCode: Int,
+        resultData: Intent,
+    ) {
         try {
             val bitmap = captureScreen(resultCode, resultData)
             if (bitmap == null) {
@@ -134,13 +146,15 @@ class ScreenCaptureService : Service() {
             try {
                 val sourcePackage = resolveSourcePackage()
                 // 并行执行二维码检测和 LLM 识别
-                val (qrResult, extract) = coroutineScope {
-                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                    val extractDeferred = async {
-                        ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap, sourcePackage)
+                val (qrResult, extract) =
+                    coroutineScope {
+                        val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                        val extractDeferred =
+                            async {
+                                ExtractWorkflow(this@ScreenCaptureService).processScreenshot(bitmap, sourcePackage)
+                            }
+                        qrDeferred.await() to extractDeferred.await()
                     }
-                    qrDeferred.await() to extractDeferred.await()
-                }
 
                 // 如果检测到二维码，保存到数据库
                 if (qrResult != null) {
@@ -151,7 +165,10 @@ class ScreenCaptureService : Service() {
                     DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
                 }
 
-                val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
+                val timeText =
+                    android.text.format.DateFormat
+                        .format("HH:mm", extract.createdAtMillis)
+                        .toString()
 
                 // 根据提取结果的 title 匹配市场类型（获取颜色和时长）
                 val matchedItem = findMatchedMarketItem(extract.title)
@@ -170,7 +187,7 @@ class ScreenCaptureService : Service() {
                         emoji = emoji,
                         qrBitmap = qrResult?.croppedBitmap,
                         extractId = extract.id,
-                        sourcePackage = extract.sourcePackage
+                        sourcePackage = extract.sourcePackage,
                     )
 
                 // 设置定时取消通知
@@ -192,90 +209,112 @@ class ScreenCaptureService : Service() {
         }
     }
 
-    private suspend fun captureScreen(resultCode: Int, resultData: Intent): Bitmap? = withContext(Dispatchers.Default) {
-        val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
-        val bounds = windowManager.currentWindowMetrics.bounds
-        val width = bounds.width()
-        val height = bounds.height()
-        val densityDpi = resources.displayMetrics.densityDpi
+    private suspend fun captureScreen(
+        resultCode: Int,
+        resultData: Intent,
+    ): Bitmap? =
+        withContext(Dispatchers.Default) {
+            val windowManager = getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+            val bounds = windowManager.currentWindowMetrics.bounds
+            val width = bounds.width()
+            val height = bounds.height()
+            val densityDpi = resources.displayMetrics.densityDpi
 
-        if (width <= 0 || height <= 0) return@withContext null
+            if (width <= 0 || height <= 0) return@withContext null
 
-        var projection: MediaProjection? = null
-        var imageReader: ImageReader? = null
-        var virtualDisplay: VirtualDisplay? = null
-
-        try {
-            projection = withContext(Dispatchers.Main) {
-                mediaProjectionManager.getMediaProjection(resultCode, resultData)
-            } ?: return@withContext null
-
-            // 注册 callback (Android 14+ 要求)
-            projection.registerCallback(object : MediaProjection.Callback() {}, mainHandler)
-
-            imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
-            virtualDisplay = projection.createVirtualDisplay(
-                "pinme_screen_capture",
-                width,
-                height,
-                densityDpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                imageReader.surface,
-                null,
-                null
-            )
-
-            val image = withTimeoutOrNull(5_000) {
-                suspendCancellableCoroutine<android.media.Image?> { cont ->
-                    val listener = ImageReader.OnImageAvailableListener { reader ->
-                        try {
-                            val img = reader.acquireLatestImage()
-                            if (img != null && cont.isActive) {
-                                try {
-                                    reader.setOnImageAvailableListener(null, mainHandler)
-                                } catch (_: Exception) {
-                                }
-                                cont.resume(img)
-                            }
-                        } catch (e: Exception) {
-                            if (cont.isActive) cont.resume(null)
-                        }
-                    }
-                    imageReader.setOnImageAvailableListener(listener, mainHandler)
-                    cont.invokeOnCancellation {
-                        try {
-                            imageReader.setOnImageAvailableListener(null, mainHandler)
-                        } catch (_: Exception) {
-                        }
-                    }
-                }
-            } ?: return@withContext null
+            var projection: MediaProjection? = null
+            var imageReader: ImageReader? = null
+            var virtualDisplay: VirtualDisplay? = null
 
             try {
-                val planes = image.planes
-                if (planes.isEmpty()) return@withContext null
-                val buffer: ByteBuffer = planes[0].buffer
-                buffer.rewind()
-                val pixelStride = planes[0].pixelStride
-                val rowStride = planes[0].rowStride
-                val rowPadding = rowStride - pixelStride * width
-                val bitmapWidth = width + (rowPadding / pixelStride)
-                val bitmap = Bitmap.createBitmap(bitmapWidth, height, Bitmap.Config.ARGB_8888)
-                bitmap.copyPixelsFromBuffer(buffer)
-                return@withContext Bitmap.createBitmap(bitmap, 0, 0, width, height)
+                projection = withContext(Dispatchers.Main) {
+                    mediaProjectionManager.getMediaProjection(resultCode, resultData)
+                } ?: return@withContext null
+
+                // 注册 callback (Android 14+ 要求)
+                projection.registerCallback(object : MediaProjection.Callback() {}, mainHandler)
+
+                imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+                virtualDisplay =
+                    projection.createVirtualDisplay(
+                        "pinme_screen_capture",
+                        width,
+                        height,
+                        densityDpi,
+                        DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                        imageReader.surface,
+                        null,
+                        null,
+                    )
+
+                val image =
+                    withTimeoutOrNull(5_000) {
+                        suspendCancellableCoroutine<android.media.Image?> { cont ->
+                            val listener =
+                                ImageReader.OnImageAvailableListener { reader ->
+                                    try {
+                                        val img = reader.acquireLatestImage()
+                                        if (img != null && cont.isActive) {
+                                            try {
+                                                reader.setOnImageAvailableListener(null, mainHandler)
+                                            } catch (_: Exception) {
+                                            }
+                                            cont.resume(img)
+                                        }
+                                    } catch (e: Exception) {
+                                        if (cont.isActive) cont.resume(null)
+                                    }
+                                }
+                            imageReader.setOnImageAvailableListener(listener, mainHandler)
+                            cont.invokeOnCancellation {
+                                try {
+                                    imageReader.setOnImageAvailableListener(null, mainHandler)
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
+                    } ?: return@withContext null
+
+                try {
+                    val planes = image.planes
+                    if (planes.isEmpty()) return@withContext null
+                    val buffer: ByteBuffer = planes[0].buffer
+                    buffer.rewind()
+                    val pixelStride = planes[0].pixelStride
+                    val rowStride = planes[0].rowStride
+                    val rowPadding = rowStride - pixelStride * width
+                    val bitmapWidth = width + (rowPadding / pixelStride)
+                    val bitmap = Bitmap.createBitmap(bitmapWidth, height, Bitmap.Config.ARGB_8888)
+                    bitmap.copyPixelsFromBuffer(buffer)
+                    return@withContext Bitmap.createBitmap(bitmap, 0, 0, width, height)
+                } finally {
+                    try {
+                        image.close()
+                    } catch (_: Exception) {
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "captureScreen failed", e)
+                return@withContext null
             } finally {
-                try { image.close() } catch (_: Exception) {}
+                try {
+                    imageReader?.setOnImageAvailableListener(null, mainHandler)
+                } catch (_: Exception) {
+                }
+                try {
+                    virtualDisplay?.release()
+                } catch (_: Exception) {
+                }
+                try {
+                    imageReader?.close()
+                } catch (_: Exception) {
+                }
+                try {
+                    projection?.stop()
+                } catch (_: Exception) {
+                }
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "captureScreen failed", e)
-            return@withContext null
-        } finally {
-            try { imageReader?.setOnImageAvailableListener(null, mainHandler) } catch (_: Exception) {}
-            try { virtualDisplay?.release() } catch (_: Exception) {}
-            try { imageReader?.close() } catch (_: Exception) {}
-            try { projection?.stop() } catch (_: Exception) {}
         }
-    }
 
     /**
      * 根据提取结果的 title 匹配市场类型
@@ -303,19 +342,24 @@ class ScreenCaptureService : Service() {
     /**
      * 设置定时取消通知
      */
-    private fun scheduleNotificationDismiss(durationMinutes: Int, extractId: Long) {
+    private fun scheduleNotificationDismiss(
+        durationMinutes: Int,
+        extractId: Long,
+    ) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
+        val intent =
+            Intent(this, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
         // 使用 extractId 的 hashCode 作为 requestCode，确保每个通知有唯一的定时器
         val requestCode = extractId.hashCode()
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val triggerTime = System.currentTimeMillis() + durationMinutes * 60 * 1000L
 
@@ -325,14 +369,14 @@ class ScreenCaptureService : Service() {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             } else {
                 // 回退到非精确闹钟
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             }
             Log.d(TAG, "Scheduled notification dismiss for extractId $extractId in $durationMinutes minutes")
@@ -359,7 +403,8 @@ class ScreenCaptureService : Service() {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(this)
         }
-        return DatabaseProvider.dao()
+        return DatabaseProvider
+            .dao()
             .getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
     }
 

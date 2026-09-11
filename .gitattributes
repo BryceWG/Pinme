@@ -1,0 +1,24 @@
+# 源码统一使用 LF，避免 core.autocrlf 转成 CRLF 导致 ktlint 报错
+*.kt text eol=lf
+*.kts text eol=lf
+*.java text eol=lf
+*.md text eol=lf
+*.xml text eol=lf
+*.toml text eol=lf
+*.properties text eol=lf
+*.pro text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+
+# Windows 批处理需保留 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制文件不做换行转换
+*.png binary
+*.jpg binary
+*.webp binary
+*.jar binary
+*.jks binary
+*.keystore binary

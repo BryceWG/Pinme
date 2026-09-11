@@ -23,12 +23,8 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
-import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.usage.SourceAppTracker
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.InputStream
-import java.util.concurrent.TimeUnit
+import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,9 +34,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.InputStream
+import java.util.concurrent.TimeUnit
 
 class RootCaptureService : Service() {
-
     companion object {
         private const val TAG = "RootCaptureService"
         private const val CHANNEL_ID = "screen_capture_channel"
@@ -52,30 +51,36 @@ class RootCaptureService : Service() {
         fun isSuAvailable(): Boolean {
             cachedSuAvailable?.let { return it }
 
-            val candidates = listOf(
-                "/system/bin/su",
-                "/system/xbin/su",
-                "/sbin/su",
-                "/vendor/bin/su",
-                "/su/bin/su",
-                "/data/local/bin/su",
-                "/data/local/xbin/su",
-                "/data/local/su"
-            )
+            val candidates =
+                listOf(
+                    "/system/bin/su",
+                    "/system/xbin/su",
+                    "/sbin/su",
+                    "/vendor/bin/su",
+                    "/su/bin/su",
+                    "/data/local/bin/su",
+                    "/data/local/xbin/su",
+                    "/data/local/su",
+                )
             if (candidates.any { File(it).exists() }) {
                 cachedSuAvailable = true
                 return true
             }
 
-            val available = try {
-                val process = ProcessBuilder("sh", "-c", "command -v su").start()
-                process.outputStream.close()
-                val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-                val ok = process.waitFor(1, TimeUnit.SECONDS) && process.exitValue() == 0
-                ok && output.isNotBlank()
-            } catch (_: Exception) {
-                false
-            }
+            val available =
+                try {
+                    val process = ProcessBuilder("sh", "-c", "command -v su").start()
+                    process.outputStream.close()
+                    val output =
+                        process.inputStream
+                            .bufferedReader()
+                            .use { it.readText() }
+                            .trim()
+                    val ok = process.waitFor(1, TimeUnit.SECONDS) && process.exitValue() == 0
+                    ok && output.isNotBlank()
+                } catch (_: Exception) {
+                    false
+                }
             cachedSuAvailable = available
             return available
         }
@@ -96,7 +101,11 @@ class RootCaptureService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 
@@ -110,26 +119,27 @@ class RootCaptureService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "截屏服务",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "用于截屏识别的前台服务"
-            setShowBadge(false)
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "截屏服务",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "用于截屏识别的前台服务"
+                setShowBadge(false)
+            }
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun createNotification(): Notification {
-        return Notification.Builder(this, CHANNEL_ID)
+    private fun createNotification(): Notification =
+        Notification
+            .Builder(this, CHANNEL_ID)
             .setContentTitle("PinMe")
             .setContentText("正在截屏识别…")
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setOngoing(true)
             .build()
-    }
 
     private suspend fun performCapture() {
         if (!isSuAvailable()) {
@@ -148,13 +158,15 @@ class RootCaptureService : Service() {
 
         try {
             val sourcePackage = resolveSourcePackage()
-            val (qrResult, extract) = coroutineScope {
-                val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                val extractDeferred = async {
-                    ExtractWorkflow(this@RootCaptureService).processScreenshot(bitmap, sourcePackage)
+            val (qrResult, extract) =
+                coroutineScope {
+                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                    val extractDeferred =
+                        async {
+                            ExtractWorkflow(this@RootCaptureService).processScreenshot(bitmap, sourcePackage)
+                        }
+                    qrDeferred.await() to extractDeferred.await()
                 }
-                qrDeferred.await() to extractDeferred.await()
-            }
 
             if (qrResult != null) {
                 val qrBase64 = qrResult.croppedBitmap.toJpegBase64()
@@ -164,7 +176,10 @@ class RootCaptureService : Service() {
                 DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
             }
 
-            val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
+            val timeText =
+                android.text.format.DateFormat
+                    .format("HH:mm", extract.createdAtMillis)
+                    .toString()
 
             val matchedItem = findMatchedMarketItem(extract.title)
             val capsuleColor = matchedItem?.capsuleColor
@@ -180,7 +195,7 @@ class RootCaptureService : Service() {
                     emoji = emoji,
                     qrBitmap = qrResult?.croppedBitmap,
                     extractId = extract.id,
-                    sourcePackage = extract.sourcePackage
+                    sourcePackage = extract.sourcePackage,
                 )
 
             if (durationMinutes != null && durationMinutes > 0) {
@@ -199,45 +214,47 @@ class RootCaptureService : Service() {
         }
     }
 
-    private suspend fun captureScreenViaRoot(): Bitmap? = withContext(Dispatchers.IO) {
-        val bytes = try {
-            coroutineScope {
-                val process = ProcessBuilder("su", "-c", "screencap -p").start()
+    private suspend fun captureScreenViaRoot(): Bitmap? =
+        withContext(Dispatchers.IO) {
+            val bytes =
                 try {
-                    val stdoutDeferred = async { process.inputStream.use { it.readAllToBytes() } }
-                    val stderrDeferred = async { process.errorStream.use { it.readAllToBytes() } }
+                    coroutineScope {
+                        val process = ProcessBuilder("su", "-c", "screencap -p").start()
+                        try {
+                            val stdoutDeferred = async { process.inputStream.use { it.readAllToBytes() } }
+                            val stderrDeferred = async { process.errorStream.use { it.readAllToBytes() } }
 
-                    val exited = process.waitFor(30, TimeUnit.SECONDS)
-                    val stdout = runCatching { stdoutDeferred.await() }.getOrDefault(ByteArray(0))
-                    val stderr = runCatching { stderrDeferred.await() }.getOrDefault(ByteArray(0))
+                            val exited = process.waitFor(30, TimeUnit.SECONDS)
+                            val stdout = runCatching { stdoutDeferred.await() }.getOrDefault(ByteArray(0))
+                            val stderr = runCatching { stderrDeferred.await() }.getOrDefault(ByteArray(0))
 
-                    if (!exited) {
-                        Log.e(TAG, "su screencap timed out")
-                        return@coroutineScope null
+                            if (!exited) {
+                                Log.e(TAG, "su screencap timed out")
+                                return@coroutineScope null
+                            }
+
+                            val exitCode = process.exitValue()
+                            if (exitCode != 0 || stdout.isEmpty()) {
+                                val errText = stderr.decodeToString().trim()
+                                Log.e(TAG, "su screencap failed: exitCode=$exitCode stderr=$errText")
+                                return@coroutineScope null
+                            }
+
+                            fixScreencapPng(stdout)
+                        } finally {
+                            try {
+                                process.destroy()
+                            } catch (_: Exception) {
+                            }
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "capture via root failed", e)
+                    null
+                } ?: return@withContext null
 
-                    val exitCode = process.exitValue()
-                    if (exitCode != 0 || stdout.isEmpty()) {
-                        val errText = stderr.decodeToString().trim()
-                        Log.e(TAG, "su screencap failed: exitCode=$exitCode stderr=$errText")
-                        return@coroutineScope null
-                    }
-
-                    fixScreencapPng(stdout)
-                } finally {
-                    try {
-                        process.destroy()
-                    } catch (_: Exception) {
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "capture via root failed", e)
-            null
-        } ?: return@withContext null
-
-        return@withContext BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-    }
+            return@withContext BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        }
 
     private fun InputStream.readAllToBytes(): ByteArray {
         val buffer = ByteArray(16 * 1024)
@@ -287,18 +304,23 @@ class RootCaptureService : Service() {
         }
     }
 
-    private fun scheduleNotificationDismiss(durationMinutes: Int, extractId: Long) {
+    private fun scheduleNotificationDismiss(
+        durationMinutes: Int,
+        extractId: Long,
+    ) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
+        val intent =
+            Intent(this, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
         val requestCode = extractId.hashCode()
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val triggerTime = System.currentTimeMillis() + durationMinutes * 60 * 1000L
 
@@ -307,13 +329,13 @@ class RootCaptureService : Service() {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             } else {
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             }
             Log.d(TAG, "Scheduled notification dismiss for extractId $extractId in $durationMinutes minutes")
@@ -340,7 +362,8 @@ class RootCaptureService : Service() {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(this)
         }
-        return DatabaseProvider.dao()
+        return DatabaseProvider
+            .dao()
             .getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
     }
 

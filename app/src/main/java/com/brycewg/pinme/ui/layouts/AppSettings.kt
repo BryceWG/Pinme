@@ -10,14 +10,6 @@ import android.os.Build
 import android.util.Base64
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.pm.ShortcutInfoCompat
-import androidx.core.content.pm.ShortcutManagerCompat
-import androidx.core.graphics.drawable.IconCompat
-import com.brycewg.pinme.BuildConfig
-import com.brycewg.pinme.R
-import com.brycewg.pinme.capture.AccessibilityCaptureService
-import com.brycewg.pinme.capture.CaptureActivity
-import com.brycewg.pinme.capture.RootCaptureService
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -34,16 +26,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.brycewg.pinme.BuildConfig
 import com.brycewg.pinme.Constants
 import com.brycewg.pinme.Constants.LlmProvider
+import com.brycewg.pinme.R
+import com.brycewg.pinme.capture.AccessibilityCaptureService
+import com.brycewg.pinme.capture.CaptureActivity
+import com.brycewg.pinme.capture.RootCaptureService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.vllm.VllmClient
@@ -52,17 +55,13 @@ import com.brycewg.pinme.vllm.migrateLegacyLlmPreferencesToScoped
 import com.brycewg.pinme.vllm.setLlmScopedPreference
 import com.brycewg.pinme.vllm.toStoredValue
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -71,12 +70,13 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.ByteArrayOutputStream
 
 @OptIn(FlowPreview::class)
 @Composable
@@ -121,7 +121,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         val apiKey: String,
         val model: String,
         val temperature: Float,
-        val customBaseUrl: String
+        val customBaseUrl: String,
     )
 
     var lastSavedDraft by remember { mutableStateOf<LlmPrefsDraft?>(null) }
@@ -129,29 +129,30 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     // 立即保存当前配置的函数（用于退出时和测试前）
     val saveCurrentPrefsImmediately: suspend () -> Unit = {
         if (!isHydratingProviderPrefs) {
-            val draft = LlmPrefsDraft(
-                provider = selectedProvider,
-                apiKey = apiKey,
-                model = model,
-                temperature = temperature,
-                customBaseUrl = customBaseUrl
-            )
+            val draft =
+                LlmPrefsDraft(
+                    provider = selectedProvider,
+                    apiKey = apiKey,
+                    model = model,
+                    temperature = temperature,
+                    customBaseUrl = customBaseUrl,
+                )
             if (draft != lastSavedDraft) {
                 dao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, draft.provider, draft.apiKey)
                 dao.setLlmScopedPreference(
                     Constants.PREF_LLM_MODEL,
                     draft.provider,
-                    draft.model.trim().ifBlank { draft.provider.defaultModel }
+                    draft.model.trim().ifBlank { draft.provider.defaultModel },
                 )
                 dao.setLlmScopedPreference(
                     Constants.PREF_LLM_TEMPERATURE,
                     draft.provider,
-                    draft.temperature.toString()
+                    draft.temperature.toString(),
                 )
                 dao.setLlmScopedPreference(
                     Constants.PREF_LLM_CUSTOM_BASE_URL,
                     draft.provider,
-                    draft.customBaseUrl.trim()
+                    draft.customBaseUrl.trim(),
                 )
                 lastSavedDraft = draft
             }
@@ -171,11 +172,12 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -186,21 +188,23 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     val latestDao by rememberUpdatedState(dao)
     val sendTestLiveNotification: () -> Unit = {
         val timeText =
-            android.text.format.DateFormat.format("HH:mm", System.currentTimeMillis()).toString()
+            android.text.format.DateFormat
+                .format("HH:mm", System.currentTimeMillis())
+                .toString()
         // 使用特殊的测试通知 ID（负数，避免与真实 extractId 冲突）
         val testExtractId = -System.currentTimeMillis()
         UnifiedNotificationManager(latestContext).showExtractNotification(
             title = "测试实况通知",
             content = "如果你看到了这条通知，说明通知发送正常。",
             timeText = timeText,
-            extractId = testExtractId
+            extractId = testExtractId,
         )
         Toast.makeText(latestContext, "已发送测试通知", Toast.LENGTH_SHORT).show()
     }
 
     val postNotificationPermissionLauncher =
         androidx.activity.compose.rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.RequestPermission()
+            contract = ActivityResultContracts.RequestPermission(),
         ) { granted ->
             if (granted) {
                 sendTestLiveNotification()
@@ -216,12 +220,13 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         val provider = LlmProvider.fromStoredValue(dao.getPreference(Constants.PREF_LLM_PROVIDER))
         dao.migrateLegacyLlmPreferencesToScoped(
             provider = provider,
-            baseKeys = listOf(
-                Constants.PREF_LLM_API_KEY,
-                Constants.PREF_LLM_MODEL,
-                Constants.PREF_LLM_TEMPERATURE,
-                Constants.PREF_LLM_CUSTOM_BASE_URL
-            )
+            baseKeys =
+                listOf(
+                    Constants.PREF_LLM_API_KEY,
+                    Constants.PREF_LLM_MODEL,
+                    Constants.PREF_LLM_TEMPERATURE,
+                    Constants.PREF_LLM_CUSTOM_BASE_URL,
+                ),
         )
         selectedProvider = provider
 
@@ -230,29 +235,33 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, provider) ?: ""
         model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, provider)
             ?: provider.defaultModel
-        temperature = dao.getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, provider)
+        temperature = dao
+            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, provider)
             ?.toFloatOrNull()
             ?: 0.1f
         customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, provider)
             ?: ""
-        lastSavedDraft = LlmPrefsDraft(
-            provider = provider,
-            apiKey = apiKey,
-            model = model,
-            temperature = temperature,
-            customBaseUrl = customBaseUrl
-        )
+        lastSavedDraft =
+            LlmPrefsDraft(
+                provider = provider,
+                apiKey = apiKey,
+                model = model,
+                temperature = temperature,
+                customBaseUrl = customBaseUrl,
+            )
         isHydratingProviderPrefs = false
         hasInitialized = true
 
         // 加载历史记录数量限制
-        maxHistoryCount = dao.getPreference(Constants.PREF_MAX_HISTORY_COUNT)
+        maxHistoryCount = dao
+            .getPreference(Constants.PREF_MAX_HISTORY_COUNT)
             ?.toIntOrNull()
             ?.coerceIn(1, 20)
             ?: Constants.DEFAULT_MAX_HISTORY_COUNT
 
         // 加载自定义系统指令
-        customSystemInstruction = dao.getPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION)
+        customSystemInstruction = dao
+            .getPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION)
             ?.takeIf { it.isNotBlank() }
             ?: Constants.DEFAULT_SYSTEM_INSTRUCTION
 
@@ -285,32 +294,34 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, selectedProvider) ?: ""
         model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, selectedProvider)
             ?: selectedProvider.defaultModel
-        temperature = dao.getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, selectedProvider)
+        temperature = dao
+            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, selectedProvider)
             ?.toFloatOrNull()
             ?: 0.1f
         customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, selectedProvider)
             ?: ""
-        lastSavedDraft = LlmPrefsDraft(
-            provider = selectedProvider,
-            apiKey = apiKey,
-            model = model,
-            temperature = temperature,
-            customBaseUrl = customBaseUrl
-        )
+        lastSavedDraft =
+            LlmPrefsDraft(
+                provider = selectedProvider,
+                apiKey = apiKey,
+                model = model,
+                temperature = temperature,
+                customBaseUrl = customBaseUrl,
+            )
         isHydratingProviderPrefs = false
     }
 
     LaunchedEffect(Unit) {
         snapshotFlow {
-            isHydratingProviderPrefs to LlmPrefsDraft(
-                provider = selectedProvider,
-                apiKey = apiKey,
-                model = model,
-                temperature = temperature,
-                customBaseUrl = customBaseUrl
-            )
-        }
-            .filter { (hydrating, _) -> !hydrating }
+            isHydratingProviderPrefs to
+                LlmPrefsDraft(
+                    provider = selectedProvider,
+                    apiKey = apiKey,
+                    model = model,
+                    temperature = temperature,
+                    customBaseUrl = customBaseUrl,
+                )
+        }.filter { (hydrating, _) -> !hydrating }
             .map { (_, draft) -> draft }
             .distinctUntilChanged()
             .debounce(500)
@@ -321,17 +332,17 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 latestDao.setLlmScopedPreference(
                     Constants.PREF_LLM_MODEL,
                     draft.provider,
-                    draft.model.trim().ifBlank { draft.provider.defaultModel }
+                    draft.model.trim().ifBlank { draft.provider.defaultModel },
                 )
                 latestDao.setLlmScopedPreference(
                     Constants.PREF_LLM_TEMPERATURE,
                     draft.provider,
-                    draft.temperature.toString()
+                    draft.temperature.toString(),
                 )
                 latestDao.setLlmScopedPreference(
                     Constants.PREF_LLM_CUSTOM_BASE_URL,
                     draft.provider,
-                    draft.customBaseUrl.trim()
+                    draft.customBaseUrl.trim(),
                 )
                 lastSavedDraft = draft
             }
@@ -346,12 +357,12 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         content = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(text = "取消", onClick = { showRootDialog = false })
                 TextButton(text = "知道了", onClick = { showRootDialog = false })
             }
-        }
+        },
     )
 
     // 无障碍权限引导对话框
@@ -363,7 +374,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         content = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(text = "取消", onClick = { showAccessibilityDialog = false })
                 TextButton(
@@ -371,24 +382,25 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     onClick = {
                         showAccessibilityDialog = false
                         AccessibilityCaptureService.openAccessibilitySettings(context)
-                    }
+                    },
                 )
             }
-        }
+        },
     )
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 12.dp)
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 12.dp),
     ) {
         // ==================== LLM 配置 ====================
         SmallTitle(text = "LLM 配置")
         Card(modifier = Modifier.padding(horizontal = 12.dp)) {
             Column(
                 modifier = Modifier.padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OverlayDropdownPreference(
                     items = LlmProvider.entries.map { it.displayName },
@@ -401,15 +413,15 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         scope.launch {
                             dao.setPreference(
                                 Constants.PREF_LLM_PROVIDER,
-                                provider.toStoredValue()
+                                provider.toStoredValue(),
                             )
                         }
-                    }
+                    },
                 )
 
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (selectedProvider == LlmProvider.CUSTOM) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -418,12 +430,12 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 onValueChange = { customBaseUrl = it },
                                 modifier = Modifier.fillMaxWidth(),
                                 label = "Base URL",
-                                singleLine = true
+                                singleLine = true,
                             )
                             Text(
                                 "输入到 /v1 即可，例如 https://api.example.com/v1",
                                 style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }
@@ -433,7 +445,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         onValueChange = { apiKey = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = "API Key",
-                        singleLine = true
+                        singleLine = true,
                     )
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -442,16 +454,17 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             onValueChange = { model = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = "模型 ID",
-                            singleLine = true
+                            singleLine = true,
                         )
                         Text(
-                            text = when (selectedProvider) {
-                                LlmProvider.ZHIPU -> "例如 glm-4v-flash、glm-4v-plus"
-                                LlmProvider.SILICONFLOW -> "例如 Qwen/Qwen2.5-VL-72B-Instruct"
-                                LlmProvider.CUSTOM -> "根据你的服务填写模型名称"
-                            },
+                            text =
+                                when (selectedProvider) {
+                                    LlmProvider.ZHIPU -> "例如 glm-4v-flash、glm-4v-plus"
+                                    LlmProvider.SILICONFLOW -> "例如 Qwen/Qwen2.5-VL-72B-Instruct"
+                                    LlmProvider.CUSTOM -> "根据你的服务填写模型名称"
+                                },
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -463,7 +476,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     valueText = "%.2f".format(temperature),
                     valueRange = 0f..2f,
                     steps = 19,
-                    summary = "较低温度输出更确定，较高温度输出更多样"
+                    summary = "较低温度输出更确定，较高温度输出更多样",
                 )
 
                 Button(
@@ -474,22 +487,30 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             try {
                                 saveCurrentPrefsImmediately()
 
-                                val baseUrl = when (selectedProvider) {
-                                    LlmProvider.CUSTOM -> customBaseUrl.trim().takeIf { it.isNotBlank() }
-                                        ?: throw IllegalStateException("请填写 Base URL")
-                                    else -> selectedProvider.baseUrl
-                                }
-                                val testModel = model.trim().takeIf { it.isNotBlank() }
-                                    ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
-                                    ?: throw IllegalStateException("请填写模型 ID")
+                                val baseUrl =
+                                    when (selectedProvider) {
+                                        LlmProvider.CUSTOM -> {
+                                            customBaseUrl.trim().takeIf { it.isNotBlank() }
+                                                ?: throw IllegalStateException("请填写 Base URL")
+                                        }
+
+                                        else -> {
+                                            selectedProvider.baseUrl
+                                        }
+                                    }
+                                val testModel =
+                                    model.trim().takeIf { it.isNotBlank() }
+                                        ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
+                                        ?: throw IllegalStateException("请填写模型 ID")
                                 val testImageBase64 = loadAppIconBase64(context)
 
-                                val response = VllmClient().testConnection(
-                                    baseUrl = baseUrl,
-                                    apiKey = apiKey.takeIf { it.isNotBlank() },
-                                    model = testModel,
-                                    imageBase64 = testImageBase64
-                                )
+                                val response =
+                                    VllmClient().testConnection(
+                                        baseUrl = baseUrl,
+                                        apiKey = apiKey.takeIf { it.isNotBlank() },
+                                        model = testModel,
+                                        imageBase64 = testImageBase64,
+                                    )
                                 testResult = "连接成功: $response"
                                 Toast.makeText(context, "测试成功", Toast.LENGTH_SHORT).show()
                             } catch (e: Exception) {
@@ -501,10 +522,11 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         }
                     },
                     enabled = !isTesting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = ButtonDefaults.buttonColorsPrimary()
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
                     Text(if (isTesting) "测试中…" else "测试连接")
                 }
@@ -513,17 +535,19 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     Text(
                         text = testResult!!,
                         style = MiuixTheme.textStyles.footnote1,
-                        color = if (testResult!!.startsWith("连接成功"))
-                            MiuixTheme.colorScheme.primary
-                        else
-                            MiuixTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        color =
+                            if (testResult!!.startsWith("连接成功")) {
+                                MiuixTheme.colorScheme.primary
+                            } else {
+                                MiuixTheme.colorScheme.error
+                            },
+                        modifier = Modifier.padding(horizontal = 16.dp),
                     )
                 }
 
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     TextField(
                         value = customSystemInstruction,
@@ -541,12 +565,12 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth(),
                         label = "系统指令（角色描述）",
                         minLines = 2,
-                        maxLines = 4
+                        maxLines = 4,
                     )
                     Text(
                         "可自定义顶层系统提示词，不填则使用默认",
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
 
@@ -558,9 +582,10 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             dao.setPreference(Constants.PREF_CUSTOM_SYSTEM_INSTRUCTION, "")
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
                 ) {
                     Text("恢复默认")
                 }
@@ -572,7 +597,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         Card(modifier = Modifier.padding(horizontal = 12.dp)) {
             Column(
                 modifier = Modifier.padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SwitchPreference(
                     title = "Root 截图",
@@ -593,21 +618,25 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 dao.setPreference(Constants.PREF_USE_ROOT_CAPTURE, "false")
                             }
                         }
-                    }
+                    },
                 )
 
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     if (useRootCapture) {
                         Text(
-                            text = if (RootCaptureService.isSuAvailable())
-                                "已检测到 su，首次使用会弹出 Root 授权"
-                            else
-                                "未检测到 su，将自动使用传统截图方式",
+                            text =
+                                if (RootCaptureService.isSuAvailable()) {
+                                    "已检测到 su，首次使用会弹出 Root 授权"
+                                } else {
+                                    "未检测到 su，将自动使用传统截图方式"
+                                },
                             style = MiuixTheme.textStyles.footnote1,
-                            color = if (RootCaptureService.isSuAvailable())
-                                MiuixTheme.colorScheme.primary
-                            else
-                                MiuixTheme.colorScheme.error
+                            color =
+                                if (RootCaptureService.isSuAvailable()) {
+                                    MiuixTheme.colorScheme.primary
+                                } else {
+                                    MiuixTheme.colorScheme.error
+                                },
                         )
                     }
                 }
@@ -636,12 +665,12 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 dao.setPreference(Constants.PREF_USE_ACCESSIBILITY_CAPTURE, "false")
                             }
                         }
-                    }
+                    },
                 )
 
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (useAccessibilityCapture) {
                         val currentServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
@@ -649,11 +678,11 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             Text(
                                 text = "无障碍服务未开启，将自动使用传统截图方式",
                                 style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.error
+                                color = MiuixTheme.colorScheme.error,
                             )
                             Button(
                                 onClick = { AccessibilityCaptureService.openAccessibilitySettings(context) },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text("前往无障碍设置")
                             }
@@ -661,7 +690,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             Text(
                                 text = "无障碍服务已开启，可静默截图",
                                 style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.primary
+                                color = MiuixTheme.colorScheme.primary,
                             )
                         }
                     }
@@ -669,7 +698,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     Text(
                         text = "提示：若未开启无障碍/Root 截图模式，首次点击磁贴需要授予截屏权限。",
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
             }
@@ -683,7 +712,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
 
             Column(
                 modifier = Modifier.padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SwitchPreference(
                     title = "实况通知标题跳转来源应用",
@@ -694,24 +723,24 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         scope.launch {
                             dao.setPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED, enabled.toString())
                         }
-                    }
+                    },
                 )
 
                 if (sourceAppJumpEnabled && !canReadSourceFromScreenshot) {
                     Column(
                         modifier = Modifier.padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             text = "当前未满足截图来源记录条件（无障碍或 Root 截图），截图记录无法获取来源应用（分享仍可）",
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.error
+                            color = MiuixTheme.colorScheme.error,
                         )
                         Button(
                             onClick = {
                                 AccessibilityCaptureService.openAccessibilitySettings(context)
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("前往无障碍设置（可选）")
                         }
@@ -720,15 +749,16 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
 
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Button(
                         onClick = {
                             if (Build.VERSION.SDK_INT >= 33) {
-                                val granted = ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                val granted =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                                 if (!granted) {
                                     postNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                                     return@Button
@@ -737,7 +767,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             sendTestLiveNotification()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColorsPrimary()
+                        colors = ButtonDefaults.buttonColorsPrimary(),
                     ) {
                         Text("发送测试实况通知")
                     }
@@ -748,15 +778,18 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 Toast.makeText(context, "当前启动器不支持创建快捷方式", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            val shortcutIntent = Intent(context, CaptureActivity::class.java).apply {
-                                action = Intent.ACTION_VIEW
-                            }
-                            val shortcutInfo = ShortcutInfoCompat.Builder(context, "quick_capture_shortcut")
-                                .setShortLabel("截图识别")
-                                .setLongLabel("PinMe 截图识别")
-                                .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
-                                .setIntent(shortcutIntent)
-                                .build()
+                            val shortcutIntent =
+                                Intent(context, CaptureActivity::class.java).apply {
+                                    action = Intent.ACTION_VIEW
+                                }
+                            val shortcutInfo =
+                                ShortcutInfoCompat
+                                    .Builder(context, "quick_capture_shortcut")
+                                    .setShortLabel("截图识别")
+                                    .setLongLabel("PinMe 截图识别")
+                                    .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
+                                    .setIntent(shortcutIntent)
+                                    .build()
                             val success = ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)
                             if (success) {
                                 Toast.makeText(context, "请在桌面上确认添加快捷方式", Toast.LENGTH_SHORT).show()
@@ -764,7 +797,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 Toast.makeText(context, "创建快捷方式失败", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("添加截图识别快捷方式到桌面")
                     }
@@ -788,7 +821,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 valueText = maxHistoryCount.toString(),
                 valueRange = 1f..20f,
                 steps = 18,
-                summary = "超出限制的旧记录会被自动删除"
+                summary = "超出限制的旧记录会被自动删除",
             )
 
             SwitchPreference(
@@ -800,7 +833,7 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     scope.launch {
                         dao.setPreference(Constants.PREF_EXCLUDE_FROM_RECENTS, enabled.toString())
                     }
-                }
+                },
             )
 
             SwitchPreference(
@@ -812,23 +845,23 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     scope.launch {
                         dao.setPreference(Constants.PREF_CAPTURE_TOAST_ENABLED, enabled.toString())
                     }
-                }
+                },
             )
 
             ArrowPreference(
                 title = "查看使用教程",
                 summary = "了解 PinMe 的基本用法",
-                onClick = onShowTutorial
+                onClick = onShowTutorial,
             )
 
             BasicComponent(
                 title = "版本",
-                summary = BuildConfig.VERSION_NAME
+                summary = BuildConfig.VERSION_NAME,
             )
 
             BasicComponent(
                 title = "作者",
-                summary = "BryceWG"
+                summary = "BryceWG",
             )
 
             ArrowPreference(
@@ -837,19 +870,20 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 onClick = {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/BryceWG/Pinme"))
                     context.startActivity(intent)
-                }
+                },
             )
 
             ArrowPreference(
                 title = "作者其他项目",
                 summary = "说点啥 AI语音输入工具",
                 onClick = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/BryceWG/BiBi-Keyboard")
-                    )
+                    val intent =
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://github.com/BryceWG/BiBi-Keyboard"),
+                        )
                     context.startActivity(intent)
-                }
+                },
             )
         }
     }

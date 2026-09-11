@@ -20,8 +20,8 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
-import com.brycewg.pinme.widget.PinMeWidget
 import com.brycewg.pinme.usage.SourceAppTracker
+import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,7 +33,6 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.Executor
 
 class AccessibilityCaptureService : AccessibilityService() {
-
     companion object {
         private const val TAG = "AccessibilityCaptureService"
 
@@ -45,10 +44,11 @@ class AccessibilityCaptureService : AccessibilityService() {
          */
         fun isServiceEnabled(context: Context): Boolean {
             val expectedComponentName = ComponentName(context, AccessibilityCaptureService::class.java)
-            val enabledServices = Settings.Secure.getString(
-                context.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-            ) ?: return false
+            val enabledServices =
+                Settings.Secure.getString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                ) ?: return false
 
             val colonSplitter = TextUtils.SimpleStringSplitter(':')
             colonSplitter.setString(enabledServices)
@@ -79,7 +79,11 @@ class AccessibilityCaptureService : AccessibilityService() {
 
         fun getActiveWindowPackageName(context: Context): String? {
             val service = instance ?: return null
-            val packageName = service.rootInActiveWindow?.packageName?.toString()?.trim()
+            val packageName =
+                service.rootInActiveWindow
+                    ?.packageName
+                    ?.toString()
+                    ?.trim()
             if (packageName.isNullOrBlank() || packageName == context.packageName) {
                 return null
             }
@@ -90,9 +94,10 @@ class AccessibilityCaptureService : AccessibilityService() {
          * 打开无障碍设置页面
          */
         fun openAccessibilitySettings(context: Context) {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+            val intent =
+                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
             context.startActivity(intent)
         }
     }
@@ -132,7 +137,7 @@ class AccessibilityCaptureService : AccessibilityService() {
         // 延迟截图，等待控制中心/通知栏收起动画完成
         // 不同系统的动画时长可能不同，使用较长的延迟确保兼容性
         serviceScope.launch {
-            delay(800)  // 等待 800ms 让控制中心收起
+            delay(800) // 等待 800ms 让控制中心收起
             doTakeScreenshot()
         }
     }
@@ -149,10 +154,11 @@ class AccessibilityCaptureService : AccessibilityService() {
             object : TakeScreenshotCallback {
                 override fun onSuccess(screenshot: ScreenshotResult) {
                     Log.d(TAG, "Screenshot captured successfully")
-                    val bitmap = Bitmap.wrapHardwareBuffer(
-                        screenshot.hardwareBuffer,
-                        screenshot.colorSpace
-                    )
+                    val bitmap =
+                        Bitmap.wrapHardwareBuffer(
+                            screenshot.hardwareBuffer,
+                            screenshot.colorSpace,
+                        )
                     screenshot.hardwareBuffer.close()
 
                     if (bitmap != null) {
@@ -168,16 +174,17 @@ class AccessibilityCaptureService : AccessibilityService() {
                 override fun onFailure(errorCode: Int) {
                     Log.e(TAG, "Screenshot failed with error code: $errorCode")
                     // Error codes: 1=INTERNAL_ERROR, 2=NO_ACCESSIBILITY_ACCESS, 3=REQUEST_CANCELLED, 4=TIMED_OUT
-                    val errorMessage = when (errorCode) {
-                        1 -> "内部错误"
-                        2 -> "无障碍权限不足"
-                        3 -> "请求被取消"
-                        4 -> "截图超时"
-                        else -> "未知错误 ($errorCode)"
-                    }
+                    val errorMessage =
+                        when (errorCode) {
+                            1 -> "内部错误"
+                            2 -> "无障碍权限不足"
+                            3 -> "请求被取消"
+                            4 -> "截图超时"
+                            else -> "未知错误 ($errorCode)"
+                        }
                     showToast("截图失败：$errorMessage")
                 }
-            }
+            },
         )
     }
 
@@ -191,15 +198,20 @@ class AccessibilityCaptureService : AccessibilityService() {
 
                 val sourcePackage = resolveSourcePackage()
                 // 并行执行二维码检测和 LLM 识别
-                val (qrResult, extract) = coroutineScope {
-                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                    val extractDeferred = async {
-                        ExtractWorkflow(this@AccessibilityCaptureService).processScreenshot(bitmap, sourcePackage)
+                val (qrResult, extract) =
+                    coroutineScope {
+                        val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                        val extractDeferred =
+                            async {
+                                ExtractWorkflow(this@AccessibilityCaptureService).processScreenshot(bitmap, sourcePackage)
+                            }
+                        qrDeferred.await() to extractDeferred.await()
                     }
-                    qrDeferred.await() to extractDeferred.await()
-                }
 
-                val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
+                val timeText =
+                    android.text.format.DateFormat
+                        .format("HH:mm", extract.createdAtMillis)
+                        .toString()
 
                 // 根据提取结果的 title 匹配市场类型
                 val matchedItem = findMatchedMarketItem(extract.title)
@@ -215,7 +227,7 @@ class AccessibilityCaptureService : AccessibilityService() {
                         emoji = matchedItem?.emoji,
                         qrBitmap = qrResult?.croppedBitmap,
                         extractId = extract.id,
-                        sourcePackage = extract.sourcePackage
+                        sourcePackage = extract.sourcePackage,
                     )
 
                 // 设置定时取消通知
@@ -261,19 +273,24 @@ class AccessibilityCaptureService : AccessibilityService() {
     /**
      * 设置定时取消通知
      */
-    private fun scheduleNotificationDismiss(durationMinutes: Int, extractId: Long) {
+    private fun scheduleNotificationDismiss(
+        durationMinutes: Int,
+        extractId: Long,
+    ) {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(this, NotificationDismissReceiver::class.java).apply {
-            putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
-        }
+        val intent =
+            Intent(this, NotificationDismissReceiver::class.java).apply {
+                putExtra(NotificationDismissReceiver.EXTRA_EXTRACT_ID, extractId)
+            }
         // 使用 extractId 的 hashCode 作为 requestCode，确保每个通知有唯一的定时器
         val requestCode = extractId.hashCode()
-        val pendingIntent = PendingIntent.getBroadcast(
-            this,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val pendingIntent =
+            PendingIntent.getBroadcast(
+                this,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val triggerTime = System.currentTimeMillis() + durationMinutes * 60 * 1000L
 
@@ -282,13 +299,13 @@ class AccessibilityCaptureService : AccessibilityService() {
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             } else {
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerTime,
-                    pendingIntent
+                    pendingIntent,
                 )
             }
             Log.d(TAG, "Scheduled notification dismiss for extractId $extractId in $durationMinutes minutes")
@@ -315,7 +332,8 @@ class AccessibilityCaptureService : AccessibilityService() {
         if (!DatabaseProvider.isInitialized()) {
             DatabaseProvider.init(this)
         }
-        return DatabaseProvider.dao()
+        return DatabaseProvider
+            .dao()
             .getPreference(Constants.PREF_CAPTURE_TOAST_ENABLED) != "false"
     }
 }

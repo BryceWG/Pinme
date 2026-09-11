@@ -11,24 +11,24 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 object SourceAppTracker {
-    suspend fun isEnabled(context: Context): Boolean = withContext(Dispatchers.IO) {
-        if (!DatabaseProvider.isInitialized()) {
-            DatabaseProvider.init(context)
+    suspend fun isEnabled(context: Context): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!DatabaseProvider.isInitialized()) {
+                DatabaseProvider.init(context)
+            }
+            DatabaseProvider.dao().getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
         }
-        DatabaseProvider.dao().getPreference(Constants.PREF_SOURCE_APP_JUMP_ENABLED) == "true"
-    }
 
-    fun resolveForegroundPackage(context: Context): String? {
-        return AccessibilityCaptureService.getActiveWindowPackageName(context)
-    }
+    fun resolveForegroundPackage(context: Context): String? = AccessibilityCaptureService.getActiveWindowPackageName(context)
 
-    suspend fun resolveForegroundPackageWithRootFallback(context: Context): String? = withContext(Dispatchers.IO) {
-        val fromAccessibility = resolveForegroundPackage(context)
-        if (!fromAccessibility.isNullOrBlank()) {
-            return@withContext fromAccessibility
+    suspend fun resolveForegroundPackageWithRootFallback(context: Context): String? =
+        withContext(Dispatchers.IO) {
+            val fromAccessibility = resolveForegroundPackage(context)
+            if (!fromAccessibility.isNullOrBlank()) {
+                return@withContext fromAccessibility
+            }
+            resolveForegroundPackageViaRoot(context)
         }
-        resolveForegroundPackageViaRoot(context)
-    }
 
     private suspend fun resolveForegroundPackageViaRoot(context: Context): String? {
         val activityOutput = runSuCommand("dumpsys activity activities")
@@ -40,17 +40,25 @@ object SourceAppTracker {
         return windowOutput?.let { extractPackageFromOutput(it, context) }
     }
 
-    private fun extractPackageFromOutput(output: String, context: Context): String? {
-        val patterns = listOf(
-            Regex("mResumedActivity:.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
-            Regex("ResumedActivity:.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
-            Regex("mFocusedApp=.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
-            Regex("mCurrentFocus=.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)")
-        )
+    private fun extractPackageFromOutput(
+        output: String,
+        context: Context,
+    ): String? {
+        val patterns =
+            listOf(
+                Regex("mResumedActivity:.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
+                Regex("ResumedActivity:.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
+                Regex("mFocusedApp=.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
+                Regex("mCurrentFocus=.*?\\s([\\w.]+)/([\\w.]+|\\.[\\w.]+)"),
+            )
         for (line in output.lineSequence()) {
             for (pattern in patterns) {
                 val match = pattern.find(line) ?: continue
-                val packageName = match.groupValues.getOrNull(1)?.trim().orEmpty()
+                val packageName =
+                    match.groupValues
+                        .getOrNull(1)
+                        ?.trim()
+                        .orEmpty()
                 if (packageName.isNotBlank() && packageName != context.packageName) {
                     return packageName
                 }
@@ -59,39 +67,44 @@ object SourceAppTracker {
         return null
     }
 
-    private suspend fun runSuCommand(command: String, timeoutSeconds: Long = 2): String? = coroutineScope {
-        val process = try {
-            ProcessBuilder("su", "-c", command).start()
-        } catch (_: Exception) {
-            return@coroutineScope null
-        }
-
-        try {
-            process.outputStream.close()
-            val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
-            val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
-            val exited = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-            if (!exited) {
-                process.destroy()
-                process.waitFor(200, TimeUnit.MILLISECONDS)
-                if (process.isAlive) {
-                    process.destroyForcibly()
+    private suspend fun runSuCommand(
+        command: String,
+        timeoutSeconds: Long = 2,
+    ): String? =
+        coroutineScope {
+            val process =
+                try {
+                    ProcessBuilder("su", "-c", command).start()
+                } catch (_: Exception) {
+                    return@coroutineScope null
                 }
-                return@coroutineScope null
-            }
-            val stdout = runCatching { stdoutDeferred.await() }.getOrDefault("")
-            runCatching { stderrDeferred.await() }
-            if (process.exitValue() != 0) {
-                return@coroutineScope null
-            }
-            if (stdout.isBlank()) {
-                return@coroutineScope null
-            }
-            stdout
-        } finally {
-            if (process.isAlive) {
-                process.destroy()
+
+            try {
+                process.outputStream.close()
+                val stdoutDeferred = async { process.inputStream.bufferedReader().use { it.readText() } }
+                val stderrDeferred = async { process.errorStream.bufferedReader().use { it.readText() } }
+                val exited = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+                if (!exited) {
+                    process.destroy()
+                    process.waitFor(200, TimeUnit.MILLISECONDS)
+                    if (process.isAlive) {
+                        process.destroyForcibly()
+                    }
+                    return@coroutineScope null
+                }
+                val stdout = runCatching { stdoutDeferred.await() }.getOrDefault("")
+                runCatching { stderrDeferred.await() }
+                if (process.exitValue() != 0) {
+                    return@coroutineScope null
+                }
+                if (stdout.isBlank()) {
+                    return@coroutineScope null
+                }
+                stdout
+            } finally {
+                if (process.isAlive) {
+                    process.destroy()
+                }
             }
         }
-    }
 }

@@ -34,7 +34,6 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 
 class ShareProcessorService : Service() {
-
     companion object {
         private const val TAG = "ShareProcessorService"
         private const val CHANNEL_ID = "share_processor_channel"
@@ -48,21 +47,31 @@ class ShareProcessorService : Service() {
         private const val TYPE_IMAGE = "image"
         private const val TYPE_TEXT = "text"
 
-        fun startWithImage(context: Context, uri: Uri, sourcePackage: String?) {
-            val intent = Intent(context, ShareProcessorService::class.java).apply {
-                putExtra(EXTRA_TYPE, TYPE_IMAGE)
-                putExtra(EXTRA_URI, uri.toString())
-                putExtra(EXTRA_SOURCE_PACKAGE, sourcePackage)
-            }
+        fun startWithImage(
+            context: Context,
+            uri: Uri,
+            sourcePackage: String?,
+        ) {
+            val intent =
+                Intent(context, ShareProcessorService::class.java).apply {
+                    putExtra(EXTRA_TYPE, TYPE_IMAGE)
+                    putExtra(EXTRA_URI, uri.toString())
+                    putExtra(EXTRA_SOURCE_PACKAGE, sourcePackage)
+                }
             context.startForegroundService(intent)
         }
 
-        fun startWithText(context: Context, text: String, sourcePackage: String?) {
-            val intent = Intent(context, ShareProcessorService::class.java).apply {
-                putExtra(EXTRA_TYPE, TYPE_TEXT)
-                putExtra(EXTRA_TEXT, text)
-                putExtra(EXTRA_SOURCE_PACKAGE, sourcePackage)
-            }
+        fun startWithText(
+            context: Context,
+            text: String,
+            sourcePackage: String?,
+        ) {
+            val intent =
+                Intent(context, ShareProcessorService::class.java).apply {
+                    putExtra(EXTRA_TYPE, TYPE_TEXT)
+                    putExtra(EXTRA_TEXT, text)
+                    putExtra(EXTRA_SOURCE_PACKAGE, sourcePackage)
+                }
             context.startForegroundService(intent)
         }
     }
@@ -77,7 +86,11 @@ class ShareProcessorService : Service() {
         createNotificationChannel()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val notification = createNotification()
         startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 
@@ -92,6 +105,7 @@ class ShareProcessorService : Service() {
                         processImage(Uri.parse(uriString), sourcePackage)
                     }
                 }
+
                 TYPE_TEXT -> {
                     val text = intent.getStringExtra(EXTRA_TEXT)
                     if (text != null) {
@@ -106,60 +120,74 @@ class ShareProcessorService : Service() {
     }
 
     private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "分享处理",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "用于处理分享内容的前台服务"
-            setShowBadge(false)
-        }
+        val channel =
+            NotificationChannel(
+                CHANNEL_ID,
+                "分享处理",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "用于处理分享内容的前台服务"
+                setShowBadge(false)
+            }
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun createNotification(): Notification {
-        return Notification.Builder(this, CHANNEL_ID)
+    private fun createNotification(): Notification =
+        Notification
+            .Builder(this, CHANNEL_ID)
             .setContentTitle("PinMe")
             .setContentText("正在处理分享内容…")
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setOngoing(true)
             .build()
-    }
 
-    private suspend fun processImage(uri: Uri, sourcePackage: String?) {
+    private suspend fun processImage(
+        uri: Uri,
+        sourcePackage: String?,
+    ) {
         try {
             if (!DatabaseProvider.isInitialized()) {
                 DatabaseProvider.init(this)
             }
 
-            val bitmap = withContext(Dispatchers.IO) {
-                contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)
-                } ?: throw IllegalStateException("无法读取图片")
-            }
-
-            val (qrResult, extract) = coroutineScope {
-                val qrDeferred = async { QrCodeDetector.detect(bitmap) }
-                val extractDeferred = async {
-                    ExtractWorkflow(this@ShareProcessorService).processScreenshot(bitmap, sourcePackage)
+            val bitmap =
+                withContext(Dispatchers.IO) {
+                    contentResolver.openInputStream(uri)?.use { stream ->
+                        BitmapFactory.decodeStream(stream)
+                    } ?: throw IllegalStateException("无法读取图片")
                 }
-                qrDeferred.await() to extractDeferred.await()
-            }
+
+            val (qrResult, extract) =
+                coroutineScope {
+                    val qrDeferred = async { QrCodeDetector.detect(bitmap) }
+                    val extractDeferred =
+                        async {
+                            ExtractWorkflow(this@ShareProcessorService).processScreenshot(bitmap, sourcePackage)
+                        }
+                    qrDeferred.await() to extractDeferred.await()
+                }
 
             if (qrResult != null) {
-                val qrBase64 = withContext(Dispatchers.IO) {
-                    qrResult.croppedBitmap.toJpegBase64()
-                }
+                val qrBase64 =
+                    withContext(Dispatchers.IO) {
+                        qrResult.croppedBitmap.toJpegBase64()
+                    }
                 DatabaseProvider.dao().updateExtractQrCode(extract.id, qrBase64)
             }
 
-            val marketItem = withContext(Dispatchers.IO) {
-                DatabaseProvider.dao().getEnabledMarketItems()
-                    .find { it.title == extract.title }
-            }
+            val marketItem =
+                withContext(Dispatchers.IO) {
+                    DatabaseProvider
+                        .dao()
+                        .getEnabledMarketItems()
+                        .find { it.title == extract.title }
+                }
 
-            val timeText = android.text.format.DateFormat.format("HH:mm", extract.createdAtMillis).toString()
+            val timeText =
+                android.text.format.DateFormat
+                    .format("HH:mm", extract.createdAtMillis)
+                    .toString()
 
             val notificationManager = UnifiedNotificationManager(this)
             notificationManager.showExtractNotification(
@@ -170,7 +198,7 @@ class ShareProcessorService : Service() {
                 emoji = extract.emoji ?: marketItem?.emoji,
                 qrBitmap = qrResult?.croppedBitmap,
                 extractId = extract.id,
-                sourcePackage = extract.sourcePackage
+                sourcePackage = extract.sourcePackage,
             )
 
             PinMeWidget.updateWidgetContent(this)
@@ -185,36 +213,48 @@ class ShareProcessorService : Service() {
         }
     }
 
-    private suspend fun processText(text: String, sourcePackage: String?) {
+    private suspend fun processText(
+        text: String,
+        sourcePackage: String?,
+    ) {
         try {
             if (!DatabaseProvider.isInitialized()) {
                 DatabaseProvider.init(this)
             }
 
-            val parsed = withContext(Dispatchers.IO) {
-                ExtractWorkflow(this@ShareProcessorService).extractFromText(text)
-            }
+            val parsed =
+                withContext(Dispatchers.IO) {
+                    ExtractWorkflow(this@ShareProcessorService).extractFromText(text)
+                }
             val createdAt = System.currentTimeMillis()
-            val entity = ExtractEntity(
-                title = parsed.title,
-                content = parsed.content,
-                emoji = parsed.emoji,
-                source = "share_text",
-                sourcePackage = sourcePackage,
-                rawModelOutput = "",
-                createdAtMillis = createdAt
-            )
-            val id = withContext(Dispatchers.IO) {
-                DatabaseProvider.dao().insertExtract(entity)
-            }
+            val entity =
+                ExtractEntity(
+                    title = parsed.title,
+                    content = parsed.content,
+                    emoji = parsed.emoji,
+                    source = "share_text",
+                    sourcePackage = sourcePackage,
+                    rawModelOutput = "",
+                    createdAtMillis = createdAt,
+                )
+            val id =
+                withContext(Dispatchers.IO) {
+                    DatabaseProvider.dao().insertExtract(entity)
+                }
 
-            val marketItem = withContext(Dispatchers.IO) {
-                DatabaseProvider.dao().getEnabledMarketItems()
-                    .find { it.title == entity.title }
-            }
+            val marketItem =
+                withContext(Dispatchers.IO) {
+                    DatabaseProvider
+                        .dao()
+                        .getEnabledMarketItems()
+                        .find { it.title == entity.title }
+                }
 
             val notificationManager = UnifiedNotificationManager(this)
-            val timeText = android.text.format.DateFormat.format("HH:mm", createdAt).toString()
+            val timeText =
+                android.text.format.DateFormat
+                    .format("HH:mm", createdAt)
+                    .toString()
             notificationManager.showExtractNotification(
                 title = entity.title,
                 content = entity.content,
@@ -222,7 +262,7 @@ class ShareProcessorService : Service() {
                 capsuleColor = marketItem?.capsuleColor,
                 emoji = entity.emoji ?: marketItem?.emoji,
                 extractId = id,
-                sourcePackage = entity.sourcePackage
+                sourcePackage = entity.sourcePackage,
             )
 
             PinMeWidget.updateWidgetContent(this)

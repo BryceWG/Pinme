@@ -13,9 +13,15 @@ Communicate in Chinese.
 
 Never try to use `./gradlew build`.
 
+- 编译验证：`./gradlew :app:compileDebugKotlin`
+- 打包 debug APK：`./gradlew :app:assembleDebug`
+- 代码格式检查：`./gradlew :app:ktlintCheck`
+- 自动格式化：`./gradlew :app:ktlintFormat`（必要时重复运行直至收敛）
+
 ## Coding Style & Naming Conventions
 
 - Kotlin follows the official style (`kotlin.code.style=official`): 4-space indentation, no tabs.
+- Formatting is enforced by ktlint（`ktlint_official` 规范，配置见根目录 `.editorconfig`）；提交前请运行 `:app:ktlintFormat`。
 - Names: packages `lowercase`, classes/objects `PascalCase`, functions/variables `camelCase`.
 - Compose: `@Composable` functions are typically `PascalCase` for screens/components (for example, `ExtractHome`).
 - Prefer small, focused changes; avoid formatting-only diffs unless required.

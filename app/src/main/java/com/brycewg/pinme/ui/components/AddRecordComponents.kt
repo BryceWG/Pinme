@@ -5,23 +5,23 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
@@ -35,8 +35,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,7 +71,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 data class AddRecordActions(
     val onManualAdd: (title: String, content: String, emoji: String?) -> Unit,
     val onPickImage: () -> Unit,
-    val onTakePhoto: () -> Unit
+    val onTakePhoto: () -> Unit,
 )
 
 /**
@@ -89,48 +89,48 @@ fun ExpandableFAB(
     onManualClick: () -> Unit,
     onImageClick: () -> Unit,
     onCameraClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val rotation by animateFloatAsState(
         targetValue = if (expanded) 135f else 0f,
-        label = "fab_rotation"
+        label = "fab_rotation",
     )
 
     // FAB 按钮组
     Column(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier
+        modifier = modifier,
     ) {
         // 子按钮（展开时显示）
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut()
+            exit = fadeOut() + scaleOut(),
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 // 相机按钮
                 FABMenuItem(
                     icon = Icons.Rounded.CameraAlt,
                     label = "拍照",
-                    onClick = onCameraClick
+                    onClick = onCameraClick,
                 )
 
                 // 图库按钮
                 FABMenuItem(
                     icon = Icons.Rounded.Image,
                     label = "图库",
-                    onClick = onImageClick
+                    onClick = onImageClick,
                 )
 
                 // 手动添加按钮
                 FABMenuItem(
                     icon = Icons.Rounded.Edit,
                     label = "手动",
-                    onClick = onManualClick
+                    onClick = onManualClick,
                 )
             }
         }
@@ -138,13 +138,13 @@ fun ExpandableFAB(
         // 主按钮
         FloatingActionButton(
             onClick = { onExpandChange(!expanded) },
-            containerColor = MiuixTheme.colorScheme.primary
+            containerColor = MiuixTheme.colorScheme.primary,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Add,
                 contentDescription = if (expanded) "关闭" else "添加",
                 tint = MiuixTheme.colorScheme.onPrimary,
-                modifier = Modifier.rotate(rotation)
+                modifier = Modifier.rotate(rotation),
             )
         }
     }
@@ -154,23 +154,23 @@ fun ExpandableFAB(
 private fun FABMenuItem(
     icon: ImageVector,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End
+        horizontalArrangement = Arrangement.End,
     ) {
         // 标签
         Text(
             text = label,
             style = MiuixTheme.textStyles.footnote1,
             color = MiuixTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .background(
-                    MiuixTheme.colorScheme.surfaceContainer,
-                    RoundedCornerShape(8.dp)
-                )
-                .padding(horizontal = 12.dp, vertical = 6.dp)
+            modifier =
+                Modifier
+                    .background(
+                        MiuixTheme.colorScheme.surfaceContainer,
+                        RoundedCornerShape(8.dp),
+                    ).padding(horizontal = 12.dp, vertical = 6.dp),
         )
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -178,13 +178,13 @@ private fun FABMenuItem(
         // 小 FAB
         IconButton(
             onClick = onClick,
-            backgroundColor = MiuixTheme.colorScheme.secondaryContainer
+            backgroundColor = MiuixTheme.colorScheme.secondaryContainer,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = MiuixTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -197,7 +197,7 @@ private fun FABMenuItem(
 fun ManualAddDialog(
     show: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (title: String, content: String, emoji: String?) -> Unit
+    onConfirm: (title: String, content: String, emoji: String?) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -226,10 +226,11 @@ fun ManualAddDialog(
         content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = maxDialogHeight)
-                    .verticalScroll(scrollState)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxDialogHeight)
+                        .verticalScroll(scrollState),
             ) {
                 // 模板选择器（必选，点击展开模板列表）
                 BasicComponent(
@@ -239,15 +240,15 @@ fun ManualAddDialog(
                         Icon(
                             imageVector = if (templateListExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                             contentDescription = null,
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                         )
                     },
-                    onClick = { templateListExpanded = !templateListExpanded }
+                    onClick = { templateListExpanded = !templateListExpanded },
                 )
                 AnimatedVisibility(
                     visible = templateListExpanded,
                     enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    exit = fadeOut() + shrinkVertically(),
                 ) {
                     Card {
                         marketItems.forEach { preset ->
@@ -259,7 +260,7 @@ fun ManualAddDialog(
                                     title = preset.title
                                     emoji = preset.emoji
                                     templateListExpanded = false
-                                }
+                                },
                             )
                         }
                     }
@@ -271,7 +272,7 @@ fun ManualAddDialog(
                     onValueChange = { title = it },
                     label = "标题",
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
                 )
 
                 // 内容输入
@@ -281,7 +282,7 @@ fun ManualAddDialog(
                     label = "内容",
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
-                    maxLines = 4
+                    maxLines = 4,
                 )
 
                 // Emoji 输入
@@ -291,12 +292,12 @@ fun ManualAddDialog(
                         onValueChange = { if (it.length <= 4) emoji = it },
                         label = "图标（可选）",
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Text(
                         "留空使用默认图标",
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
 
@@ -312,19 +313,20 @@ fun ManualAddDialog(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4,
-                        colors = if (extractError != null) {
-                            TextFieldDefaults.textFieldColors(
-                                labelColor = MiuixTheme.colorScheme.error,
-                                borderColor = MiuixTheme.colorScheme.error
-                            )
-                        } else {
-                            TextFieldDefaults.textFieldColors()
-                        },
+                        colors =
+                            if (extractError != null) {
+                                TextFieldDefaults.textFieldColors(
+                                    labelColor = MiuixTheme.colorScheme.error,
+                                    borderColor = MiuixTheme.colorScheme.error,
+                                )
+                            } else {
+                                TextFieldDefaults.textFieldColors()
+                            },
                         trailingIcon = {
                             if (isExtracting) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
+                                    strokeWidth = 2.dp,
                                 )
                             } else {
                                 IconButton(
@@ -348,31 +350,33 @@ fun ManualAddDialog(
                                             }
                                         }
                                     },
-                                    enabled = extractInput.isNotBlank()
+                                    enabled = extractInput.isNotBlank(),
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Rounded.Send,
                                         contentDescription = "提取",
-                                        tint = if (extractInput.isNotBlank())
-                                            MiuixTheme.colorScheme.primary
-                                        else
-                                            MiuixTheme.colorScheme.onSurfaceVariantActions
+                                        tint =
+                                            if (extractInput.isNotBlank()) {
+                                                MiuixTheme.colorScheme.primary
+                                            } else {
+                                                MiuixTheme.colorScheme.onSurfaceVariantActions
+                                            },
                                     )
                                 }
                             }
-                        }
+                        },
                     )
                     if (extractError != null) {
                         Text(
                             extractError!!,
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.error
+                            color = MiuixTheme.colorScheme.error,
                         )
                     } else {
                         Text(
                             "输入后点击发送按钮自动填充上方字段",
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -381,7 +385,7 @@ fun ManualAddDialog(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(text = "取消", onClick = onDismiss)
                     Spacer(modifier = Modifier.width(12.dp))
@@ -391,18 +395,18 @@ fun ManualAddDialog(
                                 onConfirm(
                                     title.trim(),
                                     content.trim(),
-                                    emoji.trim().takeIf { it.isNotBlank() }
+                                    emoji.trim().takeIf { it.isNotBlank() },
                                 )
                             }
                         },
                         enabled = selectedPreset != null && title.isNotBlank() && content.isNotBlank() && !isExtracting,
-                        colors = ButtonDefaults.buttonColorsPrimary()
+                        colors = ButtonDefaults.buttonColorsPrimary(),
                     ) {
                         Text("添加")
                     }
                 }
             }
-        }
+        },
     )
 }
 
@@ -415,7 +419,7 @@ fun EditRecordDialog(
     show: Boolean,
     onDismiss: () -> Unit,
     onDismissFinished: () -> Unit = {},
-    onConfirm: (title: String, content: String, emoji: String?) -> Unit
+    onConfirm: (title: String, content: String, emoji: String?) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -442,10 +446,11 @@ fun EditRecordDialog(
         content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = maxDialogHeight)
-                    .verticalScroll(scrollState)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = maxDialogHeight)
+                        .verticalScroll(scrollState),
             ) {
                 // 标题输入
                 TextField(
@@ -453,7 +458,7 @@ fun EditRecordDialog(
                     onValueChange = { title = it },
                     label = "标题",
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
                 )
 
                 // 内容输入
@@ -463,7 +468,7 @@ fun EditRecordDialog(
                     label = "内容",
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
-                    maxLines = 4
+                    maxLines = 4,
                 )
 
                 // Emoji 输入
@@ -473,12 +478,12 @@ fun EditRecordDialog(
                         onValueChange = { if (it.length <= 4) emoji = it },
                         label = "图标（可选）",
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
                     )
                     Text(
                         "留空使用默认图标",
                         style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
 
@@ -494,19 +499,20 @@ fun EditRecordDialog(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4,
-                        colors = if (extractError != null) {
-                            TextFieldDefaults.textFieldColors(
-                                labelColor = MiuixTheme.colorScheme.error,
-                                borderColor = MiuixTheme.colorScheme.error
-                            )
-                        } else {
-                            TextFieldDefaults.textFieldColors()
-                        },
+                        colors =
+                            if (extractError != null) {
+                                TextFieldDefaults.textFieldColors(
+                                    labelColor = MiuixTheme.colorScheme.error,
+                                    borderColor = MiuixTheme.colorScheme.error,
+                                )
+                            } else {
+                                TextFieldDefaults.textFieldColors()
+                            },
                         trailingIcon = {
                             if (isExtracting) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
-                                    strokeWidth = 2.dp
+                                    strokeWidth = 2.dp,
                                 )
                             } else {
                                 IconButton(
@@ -530,31 +536,33 @@ fun EditRecordDialog(
                                             }
                                         }
                                     },
-                                    enabled = extractInput.isNotBlank()
+                                    enabled = extractInput.isNotBlank(),
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Rounded.Send,
                                         contentDescription = "提取",
-                                        tint = if (extractInput.isNotBlank())
-                                            MiuixTheme.colorScheme.primary
-                                        else
-                                            MiuixTheme.colorScheme.onSurfaceVariantActions
+                                        tint =
+                                            if (extractInput.isNotBlank()) {
+                                                MiuixTheme.colorScheme.primary
+                                            } else {
+                                                MiuixTheme.colorScheme.onSurfaceVariantActions
+                                            },
                                     )
                                 }
                             }
-                        }
+                        },
                     )
                     if (extractError != null) {
                         Text(
                             extractError!!,
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.error
+                            color = MiuixTheme.colorScheme.error,
                         )
                     } else {
                         Text(
                             "输入后点击发送按钮自动填充上方字段",
                             style = MiuixTheme.textStyles.footnote1,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -563,7 +571,7 @@ fun EditRecordDialog(
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(text = "取消", onClick = onDismiss)
                     Spacer(modifier = Modifier.width(12.dp))
@@ -573,17 +581,17 @@ fun EditRecordDialog(
                                 onConfirm(
                                     title.trim(),
                                     content.trim(),
-                                    emoji.trim().takeIf { it.isNotBlank() }
+                                    emoji.trim().takeIf { it.isNotBlank() },
                                 )
                             }
                         },
                         enabled = title.isNotBlank() && content.isNotBlank() && !isExtracting,
-                        colors = ButtonDefaults.buttonColorsPrimary()
+                        colors = ButtonDefaults.buttonColorsPrimary(),
                     ) {
                         Text("保存")
                     }
                 }
             }
-        }
+        },
     )
 }

@@ -33,5 +33,7 @@ app/src/test/
 
 # Agent/local tooling
 .claude/
+.agents/
+.zcode/
 
 dev_docs/
