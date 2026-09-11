@@ -62,6 +62,7 @@ import com.brycewg.pinme.ui.components.EditRecordDialog
 import com.brycewg.pinme.ui.components.ExpandableFAB
 import com.brycewg.pinme.ui.components.LocalAddRecordActions
 import com.brycewg.pinme.ui.components.ManualAddDialog
+import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -201,6 +202,7 @@ fun ExtractHome() {
                             UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
                             scope.launch {
                                 dao.deleteExtractById(item.id)
+                                PinMeWidget.updateWidgetContent(context.applicationContext)
                             }
                             Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
                         },
@@ -280,6 +282,7 @@ fun ExtractHome() {
             if (item != null) {
                 scope.launch {
                     dao.updateExtract(item.id, title, content, emoji)
+                    PinMeWidget.updateWidgetContent(context.applicationContext)
                 }
                 Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
             }

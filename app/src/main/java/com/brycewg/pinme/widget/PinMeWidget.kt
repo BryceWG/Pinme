@@ -1,7 +1,5 @@
 package com.brycewg.pinme.widget
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -11,7 +9,6 @@ import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.toColorInt
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -54,7 +51,6 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
 import com.brycewg.pinme.MainActivity
 import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
@@ -68,10 +64,8 @@ import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.compose.ui.graphics.Color as ComposeColor
 
 private const val TAG = "PinMeWidget"
-private const val DEFAULT_CAPSULE_COLOR = "#FF9800"
 
 private val KEY_EXTRACTS_JSON = stringPreferencesKey("extracts_json")
 private val KEY_UPDATE_TIME = stringPreferencesKey("update_time")
@@ -240,7 +234,7 @@ class PinMeWidget : GlanceAppWidget() {
             modifier =
                 GlanceModifier
                     .fillMaxSize()
-                    .background(ComposeColor(0xFFF5F5F5))
+                    .background(WidgetColors.rootBackground)
                     .cornerRadius(16.dp)
                     .padding(12.dp),
             horizontalAlignment = Alignment.Horizontal.Start,
@@ -257,7 +251,7 @@ class PinMeWidget : GlanceAppWidget() {
                         TextStyle(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = ColorProvider(ComposeColor(0xFF333333)),
+                            color = WidgetColors.title,
                         ),
                 )
                 Spacer(modifier = GlanceModifier.defaultWeight())
@@ -267,7 +261,7 @@ class PinMeWidget : GlanceAppWidget() {
                         style =
                             TextStyle(
                                 fontSize = 11.sp,
-                                color = ColorProvider(ComposeColor(0xFF888888)),
+                                color = WidgetColors.tertiary,
                             ),
                     )
                 }
@@ -286,7 +280,7 @@ class PinMeWidget : GlanceAppWidget() {
                             style =
                                 TextStyle(
                                     fontSize = 14.sp,
-                                    color = ColorProvider(ComposeColor(0xFF666666)),
+                                    color = WidgetColors.subtitle,
                                 ),
                         )
                         Spacer(modifier = GlanceModifier.height(4.dp))
@@ -295,7 +289,7 @@ class PinMeWidget : GlanceAppWidget() {
                             style =
                                 TextStyle(
                                     fontSize = 12.sp,
-                                    color = ColorProvider(ComposeColor(0xFF999999)),
+                                    color = WidgetColors.hint,
                                 ),
                         )
                     }
@@ -318,25 +312,15 @@ class PinMeWidget : GlanceAppWidget() {
     @Composable
     private fun ExtractItemRow(item: WidgetExtractItem) {
         val context = LocalContext.current
-        val buttonColor =
-            try {
-                val baseColor = ComposeColor((item.capsuleColor ?: DEFAULT_CAPSULE_COLOR).toColorInt())
-                ComposeColor(
-                    red = baseColor.red * 0.4f + 0.6f,
-                    green = baseColor.green * 0.4f + 0.6f,
-                    blue = baseColor.blue * 0.4f + 0.6f,
-                    alpha = 1f,
-                )
-            } catch (e: Exception) {
-                ComposeColor(0xFFFFE0B2)
-            }
 
         Row(
             modifier =
                 GlanceModifier
                     .fillMaxWidth()
-                    .background(ComposeColor.White)
-                    .cornerRadius(10.dp)
+                    .background(
+                        imageProvider = ImageProvider(R.drawable.widget_card_bg),
+                        colorFilter = ColorFilter.tint(WidgetColors.cardBackground),
+                    )
                     .padding(8.dp),
             verticalAlignment = Alignment.Vertical.CenterVertically,
         ) {
@@ -371,7 +355,7 @@ class PinMeWidget : GlanceAppWidget() {
                             TextStyle(
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = ColorProvider(ComposeColor(0xFF666666)),
+                                color = WidgetColors.subtitle,
                             ),
                         maxLines = 1,
                     )
@@ -381,7 +365,7 @@ class PinMeWidget : GlanceAppWidget() {
                             TextStyle(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ColorProvider(ComposeColor(0xFF333333)),
+                                color = WidgetColors.title,
                             ),
                         maxLines = 1,
                     )
@@ -396,9 +380,8 @@ class PinMeWidget : GlanceAppWidget() {
                         .size(32.dp)
                         .background(
                             imageProvider = ImageProvider(R.drawable.widget_pin_button_bg),
-                            colorFilter = ColorFilter.tint(ColorProvider(buttonColor)),
-                        )
-                        .clickable(
+                            colorFilter = ColorFilter.tint(WidgetColors.pinButton(item.capsuleColor)),
+                        ).clickable(
                             onClick =
                                 actionRunCallback<PinToNotificationAction>(
                                     parameters = buildPinActionParameters(item),
@@ -422,11 +405,7 @@ class PinMeWidget : GlanceAppWidget() {
         suspend fun updateWidgetContent(context: Context) {
             try {
                 val appContext = context.applicationContext
-                val appWidgetIds =
-                    AppWidgetManager.getInstance(appContext).getAppWidgetIds(
-                        ComponentName(appContext, PinMeWidgetReceiver::class.java),
-                    )
-                if (appWidgetIds.isEmpty()) return
+                if (!WidgetUpdateScheduler.hasWidgets(appContext)) return
 
                 // 直接触发所有小组件更新，让 provideGlance 重新加载数据
                 PinMeWidget().updateAll(appContext)
@@ -453,9 +432,11 @@ class PinMeWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
+        WidgetUpdateScheduler.schedule(context.applicationContext)
     }
 
     override fun onDisabled(context: Context) {
+        WidgetUpdateScheduler.cancel(context.applicationContext)
         super.onDisabled(context)
     }
 }

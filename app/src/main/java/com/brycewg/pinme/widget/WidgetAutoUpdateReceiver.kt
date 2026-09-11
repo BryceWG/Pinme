@@ -16,6 +16,7 @@ class WidgetAutoUpdateReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.Default).launch {
             try {
                 PinMeWidget.updateWidgetContent(context.applicationContext)
+                WidgetUpdateScheduler.schedule(context.applicationContext)
             } finally {
                 pendingResult.finish()
             }
