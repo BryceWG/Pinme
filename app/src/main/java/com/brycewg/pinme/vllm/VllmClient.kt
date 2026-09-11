@@ -27,7 +27,6 @@ class VllmClient(
         userPrompt: String,
         imageBase64: String,
         temperature: Double = 0.1,
-        maxTokens: Int = 256,
         extraParamsJson: String? = null,
     ): String =
         withContext(Dispatchers.IO) {
@@ -70,7 +69,6 @@ class VllmClient(
                             ),
                     )
                     put("temperature", temperature)
-                    put("max_tokens", maxTokens)
                     appendExtraParams(extraParamsJson)
                 }
 
@@ -114,7 +112,6 @@ class VllmClient(
         systemPrompt: String,
         userPrompt: String,
         temperature: Double = 0.1,
-        maxTokens: Int = 256,
         extraParamsJson: String? = null,
     ): String =
         withContext(Dispatchers.IO) {
@@ -138,7 +135,6 @@ class VllmClient(
                             ),
                     )
                     put("temperature", temperature)
-                    put("max_tokens", maxTokens)
                     appendExtraParams(extraParamsJson)
                 }
 
@@ -219,7 +215,6 @@ class VllmClient(
                                 },
                             ),
                     )
-                    put("max_tokens", 32)
                     appendExtraParams(extraParamsJson)
                 }
 
@@ -264,7 +259,7 @@ class VllmClient(
 
 /**
  * 将用户自定义的推理参数 JSON 对象合并追加到请求体末尾。
- * 可覆盖 temperature/max_tokens 等内置参数，但保护 model/messages 不被覆盖；
+ * 可覆盖 temperature 等内置参数或追加 max_tokens 等模型侧参数，但保护 model/messages 不被覆盖；
  * 空值或非法 JSON 静默忽略。
  */
 private fun JSONObject.appendExtraParams(extraParamsJson: String?) {
