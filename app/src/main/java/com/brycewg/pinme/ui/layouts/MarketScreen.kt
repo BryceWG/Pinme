@@ -32,23 +32,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Restore
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -74,6 +58,20 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Switch
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.TextFieldDefaults
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.abs
 
 // 非线性时间刻度：1-10间隔1, 11-30间隔2, 31-60间隔5, 61-180间隔10, 最后为永久(-1)
@@ -244,61 +242,65 @@ fun MarketScreen() {
     val customItems by dao.getCustomMarketItemsFlow().collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
-    var editingItem by remember { mutableStateOf<MarketItemEntity?>(null) }
+    // 编辑目标与可见性分离，保证淡出动画期间数据可用
+    var editTarget by remember { mutableStateOf<MarketItemEntity?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
     var importText by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf<String?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // 顶部说明区域
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = "管理识别类型，定制提取内容与通知样式。",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Button(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.fillMaxWidth()
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // 顶部说明与操作（随列表一起滚动）
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("添加自定义类型")
-            }
+                Text(
+                    text = "管理识别类型，定制提取内容与通知样式。",
+                    style = MiuixTheme.textStyles.body2
+                )
 
-            OutlinedButton(
-                onClick = { showImportDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("导入预设分享码")
+                Button(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColorsPrimary()
+                ) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("添加自定义类型")
+                }
+
+                Button(
+                    onClick = { showImportDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("导入预设分享码")
+                }
             }
         }
 
-        // 列表区域
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // 预置类型区域
+        // 预置类型区域
             if (presetItems.isNotEmpty()) {
                 item {
-                    Text(
+                    SmallTitle(
                         text = "预置类型",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
                 items(presetItems, key = { it.id }) { item ->
                     MarketItemCard(
                         item = item,
-                        onEdit = { editingItem = item },
+                        onEdit = {
+                            editTarget = item
+                            showEditDialog = true
+                        },
                         onShare = {
                             val shareText = buildPresetShareCode(item)
                             copyToClipboard(
@@ -331,10 +333,8 @@ fun MarketScreen() {
 
             // 自定义类型区域
             item {
-                Text(
+                SmallTitle(
                     text = "自定义类型",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
                 )
             }
@@ -342,16 +342,13 @@ fun MarketScreen() {
             if (customItems.isEmpty()) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("暂无自定义类型", style = MaterialTheme.typography.titleMedium)
+                            Text("暂无自定义类型", style = MiuixTheme.textStyles.main)
                             Text(
                                 "点击上方按钮添加自定义识别类型。",
-                                style = MaterialTheme.typography.bodyMedium
+                                style = MiuixTheme.textStyles.body2
                             )
                         }
                     }
@@ -360,7 +357,10 @@ fun MarketScreen() {
                 items(customItems, key = { it.id }) { item ->
                     MarketItemCard(
                         item = item,
-                        onEdit = { editingItem = item },
+                        onEdit = {
+                            editTarget = item
+                            showEditDialog = true
+                        },
                         onShare = {
                             val shareText = buildPresetShareCode(item)
                             copyToClipboard(
@@ -388,152 +388,149 @@ fun MarketScreen() {
             // 底部空白
             item { Spacer(modifier = Modifier.height(16.dp)) }
         }
-    }
 
     // 添加对话框
-    if (showAddDialog) {
-        MarketItemDialog(
-            item = null,
-            onDismiss = { showAddDialog = false },
-            onSave = { newItem ->
-                scope.launch {
-                    dao.insertMarketItem(newItem)
-                    Toast.makeText(context, "已添加", Toast.LENGTH_SHORT).show()
-                }
-                showAddDialog = false
+    MarketItemDialog(
+        item = null,
+        show = showAddDialog,
+        onDismiss = { showAddDialog = false },
+        onSave = { newItem ->
+            scope.launch {
+                dao.insertMarketItem(newItem)
+                Toast.makeText(context, "已添加", Toast.LENGTH_SHORT).show()
             }
-        )
-    }
+            showAddDialog = false
+        }
+    )
 
     // 编辑对话框
-    if (editingItem != null) {
-        MarketItemDialog(
-            item = editingItem,
-            onDismiss = { editingItem = null },
-            onSave = { updatedItem ->
-                scope.launch {
-                    dao.updateMarketItem(updatedItem)
-                    Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
-                }
-                editingItem = null
+    MarketItemDialog(
+        item = editTarget,
+        show = showEditDialog,
+        onDismiss = { showEditDialog = false },
+        onDismissFinished = { editTarget = null },
+        onSave = { updatedItem ->
+            scope.launch {
+                dao.updateMarketItem(updatedItem)
+                Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
             }
-        )
-    }
+            showEditDialog = false
+        }
+    )
 
-    if (showImportDialog) {
-        ImportPresetDialog(
-            shareText = importText,
-            errorMessage = importError,
-            onShareTextChange = {
-                importText = it
+    ImportPresetDialog(
+        show = showImportDialog,
+        shareText = importText,
+        errorMessage = importError,
+        onShareTextChange = {
+            importText = it
+            importError = null
+        },
+        onPasteFromClipboard = {
+            val clipboardText = readClipboardText(context)
+            if (clipboardText.isNullOrBlank()) {
+                importError = "剪贴板为空或没有文本"
+            } else {
+                importText = clipboardText.trim()
                 importError = null
-            },
-            onPasteFromClipboard = {
-                val clipboardText = readClipboardText(context)
-                if (clipboardText.isNullOrBlank()) {
-                    importError = "剪贴板为空或没有文本"
-                } else {
-                    importText = clipboardText.trim()
-                    importError = null
+            }
+        },
+        onConfirm = {
+            scope.launch {
+                val parsed = runCatching { parsePresetShareCode(importText) }.getOrElse {
+                    importError = "分享码格式不正确"
+                    return@launch
                 }
-            },
-            onConfirm = {
-                scope.launch {
-                    val parsed = runCatching { parsePresetShareCode(importText) }.getOrElse {
-                        importError = "分享码格式不正确"
-                        return@launch
-                    }
-                    if (parsed.isEmpty()) {
-                        importError = "分享码里没有可导入的预设"
-                        return@launch
-                    }
-
-                    val existingByTitle = (customItems + presetItems)
-                        .associateBy { it.title }
-                        .toMutableMap()
-                    var addedCount = 0
-                    var updatedCount = 0
-                    var skippedCount = 0
-
-                    parsed.forEach { share ->
-                        val title = share.title.trim()
-                        val normalizedColor = normalizeHexColor(share.capsuleColor)
-                        if (title.isBlank() || normalizedColor == null) {
-                            skippedCount++
-                            return@forEach
-                        }
-
-                        val contentDesc = share.contentDesc.trim().ifBlank { title }
-                        val outputExample = share.outputExample.trim()
-                        val emoji = share.emoji.trim().ifBlank { "??" }.take(2)
-                        val durationMinutes = normalizeDuration(share.durationMinutes)
-
-                        val existing = existingByTitle[title]
-                        if (existing != null) {
-                            val updatedItem = existing.copy(
-                                title = title,
-                                contentDesc = contentDesc,
-                                outputExample = outputExample,
-                                emoji = emoji,
-                                capsuleColor = normalizedColor,
-                                durationMinutes = durationMinutes,
-                                isEnabled = share.isEnabled
-                            )
-                            dao.updateMarketItem(updatedItem)
-                            existingByTitle[title] = updatedItem
-                            updatedCount++
-                        } else {
-                            val newItem = MarketItemEntity(
-                                title = title,
-                                contentDesc = contentDesc,
-                                outputExample = outputExample,
-                                emoji = emoji,
-                                capsuleColor = normalizedColor,
-                                durationMinutes = durationMinutes,
-                                isEnabled = share.isEnabled,
-                                isPreset = false,
-                                presetKey = null,
-                                createdAtMillis = System.currentTimeMillis()
-                            )
-                            dao.insertMarketItem(newItem)
-                            existingByTitle[title] = newItem
-                            addedCount++
-                        }
-                    }
-
-                    if (addedCount + updatedCount == 0) {
-                        importError = "分享码里没有可导入的预设"
-                        return@launch
-                    }
-
-                    val message = buildString {
-                        if (addedCount > 0) {
-                            append("已导入")
-                            append(addedCount)
-                            append("项")
-                        }
-                        if (updatedCount > 0) {
-                            if (isNotEmpty()) append("，")
-                            append("已更新")
-                            append(updatedCount)
-                            append("项")
-                        }
-                        if (skippedCount > 0) {
-                            if (isNotEmpty()) append("，")
-                            append("跳过")
-                            append(skippedCount)
-                            append("项")
-                        }
-                    }
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                    showImportDialog = false
-                    importText = ""
-                    importError = null
+                if (parsed.isEmpty()) {
+                    importError = "分享码里没有可导入的预设"
+                    return@launch
                 }
-            },
-            onDismiss = { showImportDialog = false }
-        )
-    }
+
+                val existingByTitle = (customItems + presetItems)
+                    .associateBy { it.title }
+                    .toMutableMap()
+                var addedCount = 0
+                var updatedCount = 0
+                var skippedCount = 0
+
+                parsed.forEach { share ->
+                    val title = share.title.trim()
+                    val normalizedColor = normalizeHexColor(share.capsuleColor)
+                    if (title.isBlank() || normalizedColor == null) {
+                        skippedCount++
+                        return@forEach
+                    }
+
+                    val contentDesc = share.contentDesc.trim().ifBlank { title }
+                    val outputExample = share.outputExample.trim()
+                    val emoji = share.emoji.trim().ifBlank { "??" }.take(2)
+                    val durationMinutes = normalizeDuration(share.durationMinutes)
+
+                    val existing = existingByTitle[title]
+                    if (existing != null) {
+                        val updatedItem = existing.copy(
+                            title = title,
+                            contentDesc = contentDesc,
+                            outputExample = outputExample,
+                            emoji = emoji,
+                            capsuleColor = normalizedColor,
+                            durationMinutes = durationMinutes,
+                            isEnabled = share.isEnabled
+                        )
+                        dao.updateMarketItem(updatedItem)
+                        existingByTitle[title] = updatedItem
+                        updatedCount++
+                    } else {
+                        val newItem = MarketItemEntity(
+                            title = title,
+                            contentDesc = contentDesc,
+                            outputExample = outputExample,
+                            emoji = emoji,
+                            capsuleColor = normalizedColor,
+                            durationMinutes = durationMinutes,
+                            isEnabled = share.isEnabled,
+                            isPreset = false,
+                            presetKey = null,
+                            createdAtMillis = System.currentTimeMillis()
+                        )
+                        dao.insertMarketItem(newItem)
+                        existingByTitle[title] = newItem
+                        addedCount++
+                    }
+                }
+
+                if (addedCount + updatedCount == 0) {
+                    importError = "分享码里没有可导入的预设"
+                    return@launch
+                }
+
+                val message = buildString {
+                    if (addedCount > 0) {
+                        append("已导入")
+                        append(addedCount)
+                        append("项")
+                    }
+                    if (updatedCount > 0) {
+                        if (isNotEmpty()) append("，")
+                        append("已更新")
+                        append(updatedCount)
+                        append("项")
+                    }
+                    if (skippedCount > 0) {
+                        if (isNotEmpty()) append("，")
+                        append("跳过")
+                        append(skippedCount)
+                        append("项")
+                    }
+                }
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                showImportDialog = false
+                importText = ""
+                importError = null
+            }
+        },
+        onDismiss = { showImportDialog = false }
+    )
 }
 
 @Composable
@@ -548,13 +545,11 @@ private fun MarketItemCard(
     val bgColor = try {
         Color(android.graphics.Color.parseColor(item.capsuleColor))
     } catch (e: Exception) {
-        MaterialTheme.colorScheme.primary
+        MiuixTheme.colorScheme.primary
     }
-    var menuExpanded by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -574,17 +569,17 @@ private fun MarketItemCard(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = item.title,
-                            style = MaterialTheme.typography.titleMedium
+                            style = MiuixTheme.textStyles.main
                         )
                         if (item.isPreset) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "预置",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier
                                     .background(
-                                        MaterialTheme.colorScheme.secondaryContainer,
+                                        MiuixTheme.colorScheme.secondaryContainer,
                                         RoundedCornerShape(4.dp)
                                     )
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -593,68 +588,32 @@ private fun MarketItemCard(
                     }
                     Text(
                         text = item.contentDesc,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
                 }
 
-                // 操作按钮
-                if (item.isPreset) {
-                    Box {
-                        IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Rounded.MoreVert, contentDescription = "更多")
-                        }
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = { menuExpanded = false }
-                        ) {
-                            if (onResetPreset != null) {
-                                DropdownMenuItem(
-                                    text = { Text("恢复默认") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onResetPreset()
-                                    },
-                                    leadingIcon = { Icon(Icons.Rounded.Restore, contentDescription = null) }
-                                )
-                            }
-                            if (onShare != null) {
-                                DropdownMenuItem(
-                                    text = { Text("复制分享码") },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onShare()
-                                    },
-                                    leadingIcon = { Icon(Icons.Rounded.ContentCopy, contentDescription = null) }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("编辑") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onEdit()
-                                },
-                                leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null) }
-                            )
-                        }
+                // 操作按钮（预置项与自定义项均为行内直展；预置项无删除）
+                if (item.isPreset && onResetPreset != null) {
+                    IconButton(onClick = onResetPreset) {
+                        Icon(Icons.Rounded.Restore, contentDescription = "恢复默认")
                     }
-                } else {
-                    if (onShare != null) {
-                        IconButton(onClick = onShare) {
-                            Icon(Icons.Rounded.ContentCopy, contentDescription = "复制分享码")
-                        }
+                }
+                if (onShare != null) {
+                    IconButton(onClick = onShare) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = "复制分享码")
                     }
-                    IconButton(onClick = onEdit) {
-                        Icon(Icons.Rounded.Edit, contentDescription = "编辑")
-                    }
-                    if (onDelete != null) {
-                        IconButton(onClick = onDelete) {
-                            Icon(
-                                Icons.Rounded.Delete,
-                                contentDescription = "删除",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Rounded.Edit, contentDescription = "编辑")
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Rounded.Delete,
+                            contentDescription = "删除",
+                            tint = MiuixTheme.colorScheme.error
+                        )
                     }
                 }
             }
@@ -675,38 +634,25 @@ private fun MarketItemCard(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "胶囊颜色",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                     )
                 }
 
                 // 时长
                 Text(
                     text = formatDuration(item.durationMinutes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
 
                 // 启用开关
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!item.isPreset) {
-                        Text(
-                            text = if (item.isEnabled) "已启用" else "已禁用",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (item.isEnabled)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                    }
-                    Switch(
-                        checked = item.isEnabled,
-                        onCheckedChange = onToggleEnabled
-                    )
-                }
+                Switch(
+                    checked = item.isEnabled,
+                    onCheckedChange = onToggleEnabled
+                )
             }
         }
     }
@@ -716,22 +662,24 @@ private fun MarketItemCard(
 @Composable
 private fun MarketItemDialog(
     item: MarketItemEntity?,
+    show: Boolean,
     onDismiss: () -> Unit,
+    onDismissFinished: () -> Unit = {},
     onSave: (MarketItemEntity) -> Unit
 ) {
     val isEditing = item != null
-    val textFieldShape = RoundedCornerShape(16.dp)
     val scrollState = rememberScrollState()
     val maxDialogHeight = (LocalConfiguration.current.screenHeightDp * 0.75f).dp
+    val stateKey = item?.id ?: -1L
 
-    var title by remember { mutableStateOf(item?.title ?: "") }
-    var contentDesc by remember { mutableStateOf(item?.contentDesc ?: "") }
-    var outputExample by remember { mutableStateOf(item?.outputExample ?: "") }
-    var emoji by remember { mutableStateOf(item?.emoji ?: "📦") }
-    var capsuleColor by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
-    var colorInput by remember { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
-    var sliderPosition by remember { 
-        mutableFloatStateOf(minutesToSliderPosition(item?.durationMinutes ?: 10)) 
+    var title by remember(show, stateKey) { mutableStateOf(item?.title ?: "") }
+    var contentDesc by remember(show, stateKey) { mutableStateOf(item?.contentDesc ?: "") }
+    var outputExample by remember(show, stateKey) { mutableStateOf(item?.outputExample ?: "") }
+    var emoji by remember(show, stateKey) { mutableStateOf(item?.emoji ?: "📦") }
+    var capsuleColor by remember(show, stateKey) { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
+    var colorInput by remember(show, stateKey) { mutableStateOf(item?.capsuleColor ?: "#FFC107") }
+    var sliderPosition by remember(show, stateKey) {
+        mutableFloatStateOf(minutesToSliderPosition(item?.durationMinutes ?: 10))
     }
     val currentMinutes = sliderPositionToMinutes(sliderPosition)
     val normalizedColor = normalizeHexColor(colorInput)
@@ -739,13 +687,15 @@ private fun MarketItemDialog(
     val previewColor = try {
         Color(android.graphics.Color.parseColor(capsuleColor))
     } catch (e: Exception) {
-        MaterialTheme.colorScheme.primary
+        MiuixTheme.colorScheme.primary
     }
 
-    AlertDialog(
+    OverlayDialog(
+        show = show,
+        title = if (isEditing) "编辑识别类型" else "添加识别类型",
         onDismissRequest = onDismiss,
-        title = { Text(if (isEditing) "编辑识别类型" else "添加识别类型") },
-        text = {
+        onDismissFinished = onDismissFinished,
+        content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
@@ -754,53 +704,51 @@ private fun MarketItemDialog(
                     .verticalScroll(scrollState)
             ) {
                 // 标题输入
-                OutlinedTextField(
+                TextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("标题") },
-                    placeholder = { Text("如：取件码") },
+                    label = "标题",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = textFieldShape,
                     singleLine = true
                 )
 
                 // 内容描述
-                OutlinedTextField(
+                TextField(
                     value = contentDesc,
                     onValueChange = { contentDesc = it },
-                    label = { Text("内容描述") },
-                    placeholder = { Text("如：取件码号") },
+                    label = "内容描述",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = textFieldShape,
                     singleLine = true
                 )
 
                 // 输出示例
-                OutlinedTextField(
-                    value = outputExample,
-                    onValueChange = { outputExample = it },
-                    label = { Text("输出示例") },
-                    placeholder = { Text("如：5-8-2-1 菜鸟驿站\nA128") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = textFieldShape,
-                    minLines = 1,
-                    maxLines = 6,
-                    supportingText = { Text("每行一个示例") }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextField(
+                        value = outputExample,
+                        onValueChange = { outputExample = it },
+                        label = "输出示例",
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 1,
+                        maxLines = 6
+                    )
+                    Text(
+                        "每行一个示例",
+                        style = MiuixTheme.textStyles.footnote1,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    )
+                }
 
                 // 图标输入
-                OutlinedTextField(
+                TextField(
                     value = emoji,
                     onValueChange = { if (it.length <= 2) emoji = it },
-                    label = { Text("图标") },
-                    placeholder = { Text("如：📦") },
+                    label = "图标",
                     modifier = Modifier.fillMaxWidth(),
-                    shape = textFieldShape,
                     singleLine = true
                 )
 
                 // 颜色选择
-                Text("胶囊颜色", style = MaterialTheme.typography.bodyMedium)
+                Text("胶囊颜色", style = MiuixTheme.textStyles.body2)
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -819,9 +767,9 @@ private fun MarketItemDialog(
                                 .border(
                                     width = if (capsuleColor == color) 3.dp else 1.dp,
                                     color = if (capsuleColor == color)
-                                        MaterialTheme.colorScheme.onSurface
+                                        MiuixTheme.colorScheme.onSurface
                                     else
-                                        MaterialTheme.colorScheme.outline,
+                                        MiuixTheme.colorScheme.outline,
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -844,41 +792,54 @@ private fun MarketItemDialog(
                             .border(
                                 width = 1.dp,
                                 color = if (isColorValid)
-                                    MaterialTheme.colorScheme.outline
+                                    MiuixTheme.colorScheme.outline
                                 else
-                                    MaterialTheme.colorScheme.error,
+                                    MiuixTheme.colorScheme.error,
                                 shape = CircleShape
                             )
                     )
-                    OutlinedTextField(
-                        value = colorInput,
-                        onValueChange = { raw ->
-                            val cleaned = sanitizeHexInput(raw)
-                            colorInput = cleaned
-                            val normalized = normalizeHexColor(cleaned)
-                            if (normalized != null) {
-                                capsuleColor = normalized
-                            }
-                        },
-                        label = { Text("自定义颜色（十六进制）") },
-                        placeholder = { Text("#RRGGBB") },
-                        supportingText = {
-                            Text(
-                                if (isColorValid) "支持 #RRGGBB 或 #AARRGGBB"
-                                else "请输入 6 或 8 位十六进制颜色"
-                            )
-                        },
-                        isError = !isColorValid && colorInput.isNotBlank(),
+                    Column(
                         modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        shape = textFieldShape
-                    )
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        TextField(
+                            value = colorInput,
+                            onValueChange = { raw ->
+                                val cleaned = sanitizeHexInput(raw)
+                                colorInput = cleaned
+                                val normalized = normalizeHexColor(cleaned)
+                                if (normalized != null) {
+                                    capsuleColor = normalized
+                                }
+                            },
+                            label = "自定义颜色（十六进制）",
+                            singleLine = true,
+                            colors = if (!isColorValid && colorInput.isNotBlank()) {
+                                TextFieldDefaults.textFieldColors(
+                                    labelColor = MiuixTheme.colorScheme.error,
+                                    borderColor = MiuixTheme.colorScheme.error
+                                )
+                            } else {
+                                TextFieldDefaults.textFieldColors()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            if (isColorValid) "支持 #RRGGBB 或 #AARRGGBB"
+                            else "请输入 6 或 8 位十六进制颜色",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = if (!isColorValid && colorInput.isNotBlank())
+                                MiuixTheme.colorScheme.error
+                            else
+                                MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
+                    }
                 }
 
                 // 时长设置
                 Text(
                     text = "显示时长: ${formatDuration(currentMinutes)}",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MiuixTheme.textStyles.body2
                 )
                 Slider(
                     value = sliderPosition,
@@ -889,38 +850,42 @@ private fun MarketItemDialog(
                 )
                 Text(
                     text = if (currentMinutes == -1) "通知将永久显示，直到手动关闭" else "通知将在指定时间后自动消失",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (title.isBlank() || !isColorValid) return@Button
-                    val newItem = MarketItemEntity(
-                        id = item?.id ?: 0,
-                        title = title.trim(),
-                        contentDesc = contentDesc.trim().ifBlank { title.trim() },
-                        outputExample = outputExample.trim(),
-                        emoji = emoji.ifBlank { "📦" },
-                        capsuleColor = capsuleColor,
-                        durationMinutes = currentMinutes,
-                        isEnabled = item?.isEnabled ?: true,
-                        isPreset = item?.isPreset ?: false,
-                        presetKey = item?.presetKey,
-                        createdAtMillis = item?.createdAtMillis ?: System.currentTimeMillis()
-                    )
-                    onSave(newItem)
-                },
-                enabled = title.isNotBlank() && isColorValid
-            ) {
-                Text(if (isEditing) "保存" else "添加")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+
+                // 操作按钮
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(text = "取消", onClick = onDismiss)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            if (title.isBlank() || !isColorValid) return@Button
+                            val newItem = MarketItemEntity(
+                                id = item?.id ?: 0,
+                                title = title.trim(),
+                                contentDesc = contentDesc.trim().ifBlank { title.trim() },
+                                outputExample = outputExample.trim(),
+                                emoji = emoji.ifBlank { "📦" },
+                                capsuleColor = capsuleColor,
+                                durationMinutes = currentMinutes,
+                                isEnabled = item?.isEnabled ?: true,
+                                isPreset = item?.isPreset ?: false,
+                                presetKey = item?.presetKey,
+                                createdAtMillis = item?.createdAtMillis ?: System.currentTimeMillis()
+                            )
+                            onSave(newItem)
+                        },
+                        enabled = title.isNotBlank() && isColorValid,
+                        colors = ButtonDefaults.buttonColorsPrimary()
+                    ) {
+                        Text(if (isEditing) "保存" else "添加")
+                    }
+                }
             }
         }
     )
@@ -928,6 +893,7 @@ private fun MarketItemDialog(
 
 @Composable
 private fun ImportPresetDialog(
+    show: Boolean,
     shareText: String,
     errorMessage: String?,
     onShareTextChange: (String) -> Unit,
@@ -935,59 +901,66 @@ private fun ImportPresetDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val textFieldShape = RoundedCornerShape(16.dp)
-
-    AlertDialog(
+    OverlayDialog(
+        show = show,
+        title = "导入预设",
         onDismissRequest = onDismiss,
-        title = { Text("导入预设") },
-        text = {
+        content = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                OutlinedTextField(
-                    value = shareText,
-                    onValueChange = onShareTextChange,
-                    label = { Text("分享码") },
-                    placeholder = { Text("$MARKET_PRESET_SHARE_PREFIX{...}") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = textFieldShape,
-                    minLines = 4,
-                    maxLines = 8,
-                    isError = errorMessage != null,
-                    supportingText = {
-                        if (errorMessage != null) {
-                            Text(errorMessage, color = MaterialTheme.colorScheme.error)
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextField(
+                        value = shareText,
+                        onValueChange = onShareTextChange,
+                        label = "分享码",
+                        minLines = 4,
+                        maxLines = 8,
+                        colors = if (errorMessage != null) {
+                            TextFieldDefaults.textFieldColors(
+                                labelColor = MiuixTheme.colorScheme.error,
+                                borderColor = MiuixTheme.colorScheme.error
+                            )
                         } else {
-                            Text("粘贴以 $MARKET_PRESET_SHARE_PREFIX 开头的分享码")
-                        }
+                            TextFieldDefaults.textFieldColors()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (errorMessage != null) {
+                        Text(
+                            errorMessage,
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.error
+                        )
+                    } else {
+                        Text(
+                            "粘贴以 $MARKET_PRESET_SHARE_PREFIX 开头的分享码",
+                            style = MiuixTheme.textStyles.footnote1,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        )
                     }
-                )
-
-                TextButton(onClick = onPasteFromClipboard) {
-                    Text("从剪贴板粘贴")
                 }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                enabled = shareText.isNotBlank()
-            ) {
-                Text("导入")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
+
+                TextButton(text = "从剪贴板粘贴", onClick = onPasteFromClipboard)
+
+                // 操作按钮
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(text = "取消", onClick = onDismiss)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = onConfirm,
+                        enabled = shareText.isNotBlank(),
+                        colors = ButtonDefaults.buttonColorsPrimary()
+                    ) {
+                        Text("导入")
+                    }
+                }
             }
         }
     )
 }
-
-
-
-
-
-
-

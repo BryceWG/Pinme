@@ -22,13 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storefront
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -55,7 +48,7 @@ import com.brycewg.pinme.ui.components.TutorialDialog
 import com.brycewg.pinme.ui.layouts.AppSettings
 import com.brycewg.pinme.ui.layouts.ExtractHome
 import com.brycewg.pinme.ui.layouts.MarketScreen
-import com.brycewg.pinme.ui.theme.StarScheduleTheme
+import com.brycewg.pinme.ui.theme.PinMeTheme
 import com.brycewg.pinme.usage.SourceAppTracker
 import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +56,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -136,7 +133,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
-            StarScheduleTheme {
+            PinMeTheme {
                 CompositionLocalProvider(LocalAddRecordActions provides addRecordActions) {
                     AppRoot()
                 }
@@ -470,7 +467,6 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 private fun AppRoot() {
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
@@ -496,31 +492,27 @@ private fun AppRoot() {
         }
     }
 
-    if (showTutorial) {
-        TutorialDialog(onDismiss = dismissTutorial)
-    }
-
     Scaffold(
-        topBar = { TopAppBar(title = { Text(title) }) },
+        topBar = { TopAppBar(title = title) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
                     selected = selected == 0,
                     onClick = { selected = 0 },
-                    icon = { Icon(Icons.Rounded.History, contentDescription = null) },
-                    label = { Text("记录") }
+                    icon = Icons.Rounded.History,
+                    label = "记录"
                 )
                 NavigationBarItem(
                     selected = selected == 1,
                     onClick = { selected = 1 },
-                    icon = { Icon(Icons.Rounded.Storefront, contentDescription = null) },
-                    label = { Text("市场") }
+                    icon = Icons.Rounded.Storefront,
+                    label = "市场"
                 )
                 NavigationBarItem(
                     selected = selected == 2,
                     onClick = { selected = 2 },
-                    icon = { Icon(Icons.Rounded.Settings, contentDescription = null) },
-                    label = { Text("设置") }
+                    icon = Icons.Rounded.Settings,
+                    label = "设置"
                 )
             }
         }
@@ -533,4 +525,6 @@ private fun AppRoot() {
             }
         }
     }
+
+    TutorialDialog(show = showTutorial, onDismiss = dismissTutorial)
 }

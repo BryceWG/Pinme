@@ -28,19 +28,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +65,14 @@ import com.brycewg.pinme.ui.components.ManualAddDialog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlin.math.roundToInt
 
 private const val PAGE_SIZE = 5
@@ -86,7 +87,9 @@ fun ExtractHome() {
     // FAB 和对话框状态
     var fabExpanded by remember { mutableStateOf(false) }
     var showManualDialog by remember { mutableStateOf(false) }
-    var editingItem by remember { mutableStateOf<ExtractEntity?>(null) }
+    // 编辑目标与可见性分离，保证淡出动画期间数据可用
+    var editTarget by remember { mutableStateOf<ExtractEntity?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
 
@@ -167,12 +170,15 @@ fun ExtractHome() {
             if (extracts.isEmpty() && !isLoading) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("暂无记录", style = MaterialTheme.typography.titleMedium)
-                            Text("点一下磁贴或点击右下角按钮添加。", style = MaterialTheme.typography.bodyMedium)
+                            Text("暂无记录", style = MiuixTheme.textStyles.main)
+                            Text(
+                                "点一下磁贴或点击右下角按钮添加。",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                            )
                         }
                     }
                 }
@@ -186,7 +192,10 @@ fun ExtractHome() {
                         item = item,
                         emoji = emoji,
                         capsuleColor = matchedMarketItem?.capsuleColor,
-                        onEdit = { editingItem = item },
+                        onEdit = {
+                            editTarget = item
+                            showEditDialog = true
+                        },
                         onDelete = {
                             // 如果删除的记录正在显示为通知则取消
                             UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
@@ -210,9 +219,10 @@ fun ExtractHome() {
                             if (isLoading) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             } else {
-                                TextButton(onClick = { scope.launch { loadMore() } }) {
-                                    Text("加载更多")
-                                }
+                                TextButton(
+                                    text = "加载更多",
+                                    onClick = { scope.launch { loadMore() } }
+                                )
                             }
                         }
                     }
@@ -248,30 +258,32 @@ fun ExtractHome() {
     }
 
     // 手动添加对话框
-    if (showManualDialog) {
-        ManualAddDialog(
-            onDismiss = { showManualDialog = false },
-            onConfirm = { title, content, emoji ->
-                actions?.onManualAdd?.invoke(title, content, emoji)
-                showManualDialog = false
-            }
-        )
-    }
+    ManualAddDialog(
+        show = showManualDialog,
+        onDismiss = { showManualDialog = false },
+        onConfirm = { title, content, emoji ->
+            actions?.onManualAdd?.invoke(title, content, emoji)
+            showManualDialog = false
+        }
+    )
 
     // 编辑对话框
-    editingItem?.let { item ->
-        EditRecordDialog(
-            item = item,
-            onDismiss = { editingItem = null },
-            onConfirm = { title, content, emoji ->
+    EditRecordDialog(
+        item = editTarget,
+        show = showEditDialog,
+        onDismiss = { showEditDialog = false },
+        onDismissFinished = { editTarget = null },
+        onConfirm = { title, content, emoji ->
+            val item = editTarget
+            if (item != null) {
                 scope.launch {
                     dao.updateExtract(item.id, title, content, emoji)
                 }
                 Toast.makeText(context, "已保存", Toast.LENGTH_SHORT).show()
-                editingItem = null
             }
-        )
-    }
+            showEditDialog = false
+        }
+    )
 }
 
 private enum class ExtractCardSwipeState {
@@ -285,7 +297,6 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
     val context = LocalContext.current
     val time = DateFormat.format("MM-dd HH:mm", item.createdAtMillis).toString()
     val pinTimeText = DateFormat.format("HH:mm", item.createdAtMillis).toString()
-    val shape = MaterialTheme.shapes.medium
     val density = LocalDensity.current
     val revealWidthPx = with(density) { 72.dp.toPx() }
 
@@ -307,8 +318,8 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.errorContainer)
+                .clip(RoundedCornerShape(CardDefaults.CornerRadius))
+                .background(MiuixTheme.colorScheme.errorContainer)
                 .padding(start = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -316,7 +327,7 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                 Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.onErrorContainer
+                    tint = MiuixTheme.colorScheme.onErrorContainer
                 )
             }
         }
@@ -329,9 +340,7 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                     state = swipeState,
                     orientation = Orientation.Horizontal,
                     flingBehavior = swipeFlingBehavior
-                ),
-            shape = shape,
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                )
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
@@ -353,11 +362,11 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.title, style = MaterialTheme.typography.titleMedium)
+                            Text(item.title, style = MiuixTheme.textStyles.main)
                             Text(
                                 time,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MiuixTheme.textStyles.footnote1,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                             )
                         }
                         Spacer(modifier = Modifier.width(6.dp))
@@ -405,7 +414,7 @@ private fun ExtractCard(item: ExtractEntity, emoji: String?, capsuleColor: Strin
                         }
                     }
 
-                    Text(item.content, style = MaterialTheme.typography.bodyLarge)
+                    Text(item.content, style = MiuixTheme.textStyles.paragraph)
                 }
             }
         }
