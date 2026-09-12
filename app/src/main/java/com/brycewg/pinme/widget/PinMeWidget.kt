@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.mutablePreferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
@@ -60,6 +59,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -184,49 +184,17 @@ class PinMeWidget : GlanceAppWidget() {
         context: Context,
         id: GlanceId,
     ) {
-        // 在 provideContent 之前先确保数据已加载
         val data = loadDataDirectly(context)
+        writeWidgetState(context, id, data)
 
         provideContent {
+            val prefs = currentState<Preferences>()
+            val rendered = readWidgetState(prefs)
             GlanceTheme {
-                Content(data)
+                Content(rendered)
             }
         }
     }
-
-    /**
-     * 直接从数据库加载数据，不依赖 preferences state
-     */
-    private suspend fun loadDataDirectly(context: Context): WidgetExtractData =
-        try {
-            if (!DatabaseProvider.isInitialized()) {
-                DatabaseProvider.init(context.applicationContext)
-            }
-
-            val dao = DatabaseProvider.dao()
-            val extracts = dao.getLatestExtractsOnce(10)
-            val marketItems = dao.getEnabledMarketItems()
-
-            val items =
-                extracts.map { extract ->
-                    val matchedItem = findMatchedMarketItem(extract.title, marketItems)
-                    WidgetExtractItem(
-                        id = extract.id,
-                        title = extract.title,
-                        content = extract.content,
-                        emoji = extract.emoji ?: matchedItem?.emoji,
-                        qrCodeBase64 = extract.qrCodeBase64,
-                        sourcePackage = extract.sourcePackage,
-                        capsuleColor = matchedItem?.capsuleColor,
-                        createdAtMillis = extract.createdAtMillis,
-                    )
-                }
-            val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-            WidgetExtractData(items = items, updateTime = updateTime)
-        } catch (e: Exception) {
-            Log.e(TAG, "loadDataDirectly failed", e)
-            WidgetExtractData(items = emptyList(), updateTime = "")
-        }
 
     @Composable
     private fun Content(data: WidgetExtractData) {
@@ -407,10 +375,70 @@ class PinMeWidget : GlanceAppWidget() {
                 val appContext = context.applicationContext
                 if (!WidgetUpdateScheduler.hasWidgets(appContext)) return
 
-                // 直接触发所有小组件更新，让 provideGlance 重新加载数据
+                val data = loadDataDirectly(appContext)
+                val glanceIds = GlanceAppWidgetManager(appContext).getGlanceIds(PinMeWidget::class.java)
+                glanceIds.forEach { glanceId ->
+                    writeWidgetState(appContext, glanceId, data)
+                }
                 PinMeWidget().updateAll(appContext)
             } catch (e: Exception) {
                 Log.e(TAG, "updateWidgetContent failed", e)
+            }
+        }
+
+        private suspend fun loadDataDirectly(context: Context): WidgetExtractData =
+            try {
+                if (!DatabaseProvider.isInitialized()) {
+                    DatabaseProvider.init(context.applicationContext)
+                }
+
+                val dao = DatabaseProvider.dao()
+                val extracts = dao.getLatestUnarchivedExtractsOnce(10)
+                val marketItems = dao.getEnabledMarketItems()
+
+                val items =
+                    extracts.map { extract ->
+                        val matchedItem = findMatchedMarketItem(extract.title, marketItems)
+                        WidgetExtractItem(
+                            id = extract.id,
+                            title = extract.title,
+                            content = extract.content,
+                            emoji = extract.emoji ?: matchedItem?.emoji,
+                            qrCodeBase64 = extract.qrCodeBase64,
+                            sourcePackage = extract.sourcePackage,
+                            capsuleColor = matchedItem?.capsuleColor,
+                            createdAtMillis = extract.createdAtMillis,
+                        )
+                    }
+                val updateTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                WidgetExtractData(items = items, updateTime = updateTime)
+            } catch (e: Exception) {
+                Log.e(TAG, "loadDataDirectly failed", e)
+                WidgetExtractData(items = emptyList(), updateTime = "")
+            }
+
+        private suspend fun writeWidgetState(
+            context: Context,
+            glanceId: GlanceId,
+            data: WidgetExtractData,
+        ) {
+            val encoded = jsonParser.encodeToString(data)
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[KEY_EXTRACTS_JSON] = encoded
+                prefs[KEY_UPDATE_TIME] = data.updateTime
+            }
+        }
+
+        private fun readWidgetState(prefs: Preferences): WidgetExtractData {
+            val json = prefs[KEY_EXTRACTS_JSON]
+            if (json.isNullOrBlank()) {
+                return WidgetExtractData(items = emptyList(), updateTime = "")
+            }
+            return try {
+                jsonParser.decodeFromString<WidgetExtractData>(json)
+            } catch (e: Exception) {
+                Log.e(TAG, "readWidgetState failed", e)
+                WidgetExtractData(items = emptyList(), updateTime = "")
             }
         }
 

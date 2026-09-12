@@ -20,6 +20,7 @@ data class ExtractEntity(
     val sourcePackage: String? = null,
     val rawModelOutput: String = "",
     val createdAtMillis: Long,
+    val isArchived: Boolean = false,
 )
 
 @Entity(tableName = "market_item")

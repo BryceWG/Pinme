@@ -31,10 +31,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -222,6 +225,22 @@ fun ExtractHome() {
                                 editTarget = item
                                 showEditDialog = true
                             },
+                            onArchive = {
+                                val archived = !item.isArchived
+                                val index = extracts.indexOfFirst { it.id == item.id }
+                                if (index >= 0) {
+                                    extracts[index] = extracts[index].copy(isArchived = archived)
+                                }
+                                scope.launch {
+                                    dao.updateExtractArchived(item.id, archived)
+                                    PinMeWidget.updateWidgetContent(context.applicationContext)
+                                }
+                                Toast.makeText(
+                                    context,
+                                    if (archived) "已归档" else "已取消归档",
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            },
                             onDelete = {
                                 // 如果删除的记录正在显示为通知则取消
                                 UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
@@ -363,6 +382,7 @@ private fun ExtractCard(
     emoji: String?,
     capsuleColor: String?,
     onEdit: () -> Unit,
+    onArchive: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -438,7 +458,18 @@ private fun ExtractCard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(item.title, style = MiuixTheme.textStyles.main)
+                            Text(
+                                item.title,
+                                style =
+                                    if (item.isArchived) {
+                                        MiuixTheme.textStyles.main.copy(
+                                            textDecoration = TextDecoration.LineThrough,
+                                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                        )
+                                    } else {
+                                        MiuixTheme.textStyles.main
+                                    },
+                            )
                             Text(
                                 time,
                                 style = MiuixTheme.textStyles.footnote1,
@@ -450,6 +481,17 @@ private fun ExtractCard(
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = "编辑",
+                            )
+                        }
+                        IconButton(onClick = onArchive) {
+                            Icon(
+                                imageVector =
+                                    if (item.isArchived) {
+                                        Icons.Rounded.Unarchive
+                                    } else {
+                                        Icons.Rounded.Archive
+                                    },
+                                contentDescription = if (item.isArchived) "取消归档" else "归档",
                             )
                         }
                         IconButton(onClick = {
@@ -491,7 +533,18 @@ private fun ExtractCard(
                         }
                     }
 
-                    Text(item.content, style = MiuixTheme.textStyles.paragraph)
+                    Text(
+                        item.content,
+                        style =
+                            if (item.isArchived) {
+                                MiuixTheme.textStyles.paragraph.copy(
+                                    textDecoration = TextDecoration.LineThrough,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                )
+                            } else {
+                                MiuixTheme.textStyles.paragraph
+                            },
+                    )
                 }
             }
         }

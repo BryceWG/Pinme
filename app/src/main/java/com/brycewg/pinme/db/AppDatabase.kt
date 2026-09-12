@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExtractEntity::class,
         MarketItemEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -82,6 +82,13 @@ abstract class AppDatabase : RoomDatabase() {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     // 给 extract 表添加来源应用包名字段
                     db.execSQL("ALTER TABLE `extract` ADD COLUMN `sourcePackage` TEXT DEFAULT NULL")
+                }
+            }
+
+        val MIGRATION_7_8 =
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `extract` ADD COLUMN `isArchived` INTEGER NOT NULL DEFAULT 0")
                 }
             }
     }

@@ -48,11 +48,20 @@ abstract class PinMeDao {
         emoji: String?,
     )
 
+    @Query("UPDATE extract SET isArchived = :isArchived WHERE id = :id")
+    abstract suspend fun updateExtractArchived(
+        id: Long,
+        isArchived: Boolean,
+    )
+
     @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit")
     abstract fun getLatestExtractsFlow(limit: Int): Flow<List<ExtractEntity>>
 
     @Query("SELECT * FROM extract ORDER BY createdAtMillis DESC LIMIT :limit")
     abstract suspend fun getLatestExtractsOnce(limit: Int): List<ExtractEntity>
+
+    @Query("SELECT * FROM extract WHERE isArchived = 0 ORDER BY createdAtMillis DESC LIMIT :limit")
+    abstract suspend fun getLatestUnarchivedExtractsOnce(limit: Int): List<ExtractEntity>
 
     @Query("DELETE FROM extract")
     abstract suspend fun deleteAllExtracts()
