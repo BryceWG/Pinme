@@ -103,14 +103,19 @@ fun PinMeTextField(
                 }
             },
             update = { view ->
+                val selectionStart = view.selectionStart
+                val selectionEnd = view.selectionEnd
+
                 view.isEnabled = enabled
-                view.hint = label
+                if (view.hint?.toString() != label) {
+                    view.hint = label
+                }
                 view.setHintTextColor(colors.labelColor.copy(alpha = 0.7f).toArgb())
                 view.setTextColor(colors.labelColor.toArgb())
-                view.isSingleLine = singleLine
-                view.minLines = minLines.coerceAtLeast(1)
-                view.maxLines = maxLines.coerceIn(1, 20)
-                view.inputType =
+
+                val desiredMinLines = minLines.coerceAtLeast(1)
+                val desiredMaxLines = maxLines.coerceIn(1, 20)
+                val desiredInputType =
                     if (singleLine) {
                         InputType.TYPE_CLASS_TEXT
                     } else {
@@ -124,28 +129,42 @@ fun PinMeTextField(
                         ImeAction.Send -> EditorInfo.IME_ACTION_SEND
                         else -> if (singleLine) EditorInfo.IME_ACTION_NEXT else EditorInfo.IME_ACTION_NONE
                     }
-                view.imeOptions =
+                val desiredImeOptions =
                     EditorInfo.IME_FLAG_NO_FULLSCREEN or
                         EditorInfo.IME_FLAG_NO_EXTRACT_UI or
                         action
+
+                // isSingleLine / inputType 即使赋相同值也会把光标打回开头，必须按需写入
+                if (view.isSingleLine != singleLine) {
+                    view.isSingleLine = singleLine
+                }
+                if (view.minLines != desiredMinLines) {
+                    view.minLines = desiredMinLines
+                }
+                if (view.maxLines != desiredMaxLines) {
+                    view.maxLines = desiredMaxLines
+                }
+                if (view.inputType != desiredInputType) {
+                    view.inputType = desiredInputType
+                }
+                if (view.imeOptions != desiredImeOptions) {
+                    view.imeOptions = desiredImeOptions
+                }
                 // inputType / isSingleLine 会重置 transformationMethod，必须放在它们之后
                 val password = visualTransformation is PasswordVisualTransformation
                 val wantMethod = if (password) PasswordTransformationMethod.getInstance() else null
                 if (view.transformationMethod != wantMethod) {
-                    val start = view.selectionStart
-                    val end = view.selectionEnd
                     view.transformationMethod = wantMethod
-                    val len = view.text.length
-                    if (len > 0) {
-                        view.setSelection(start.coerceIn(0, len), end.coerceIn(0, len))
-                    }
                 }
                 if (view.text.toString() != value) {
-                    val start = view.selectionStart
-                    val end = view.selectionEnd
                     view.setText(value, TextView.BufferType.EDITABLE)
-                    val len = view.text.length
-                    view.setSelection(start.coerceIn(0, len), end.coerceIn(0, len))
+                }
+
+                val len = view.text.length
+                val start = selectionStart.coerceIn(0, len)
+                val end = selectionEnd.coerceIn(0, len)
+                if (view.selectionStart != start || view.selectionEnd != end) {
+                    view.setSelection(start, end)
                 }
             },
         )
