@@ -39,6 +39,7 @@ import androidx.lifecycle.lifecycleScope
 import com.brycewg.pinme.capture.AccessibilityCaptureService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
+import com.brycewg.pinme.extract.ExtractErrorStore
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
@@ -260,6 +261,7 @@ class MainActivity : ComponentActivity() {
 
                 bitmap.recycle()
             } catch (e: Exception) {
+                ExtractErrorStore.record(this@MainActivity, e)
                 Toast
                     .makeText(
                         this@MainActivity,
@@ -498,6 +500,7 @@ class MainActivity : ComponentActivity() {
                 val toastText = if (isLive) "已识别并挂到实况通知" else "已识别并发送通知"
                 Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
+                ExtractErrorStore.record(this@MainActivity, e)
                 Toast
                     .makeText(
                         this@MainActivity,

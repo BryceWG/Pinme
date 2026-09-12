@@ -70,6 +70,7 @@ class ExtractWorkflow(
                 )
             }
         val parsed = parseResult.parsed
+        rememberExtractOutcome(parsed, parseResult.rawOutput)
         val entity =
             ExtractEntity(
                 title = parsed.title,
@@ -156,6 +157,7 @@ class ExtractWorkflow(
                 )
             }
 
+        rememberExtractOutcome(parseResult.parsed, parseResult.rawOutput)
         return parseResult.parsed
     }
 
@@ -214,10 +216,18 @@ class ExtractWorkflow(
             emoji = Constants.MODEL_ERROR_EMOJI,
         )
 
-    private fun formatThrowable(error: Throwable): String {
-        val message = error.message?.trim().orEmpty()
-        return if (message.isNotBlank()) message else error::class.java.simpleName
+    private suspend fun rememberExtractOutcome(
+        parsed: ExtractParsed,
+        detail: String,
+    ) {
+        if (parsed.title == Constants.MODEL_ERROR_TITLE) {
+            ExtractErrorStore.record(context, detail)
+        } else {
+            ExtractErrorStore.clear(context)
+        }
     }
+
+    private fun formatThrowable(error: Throwable): String = ExtractErrorStore.format(error)
 
     private fun splitExampleBlocks(raw: String): List<String> {
         val normalized = raw.replace("\r\n", "\n").replace("\r", "\n").trim()

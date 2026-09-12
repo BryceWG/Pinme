@@ -17,6 +17,7 @@ import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,12 +52,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.getSystemService
+import com.brycewg.pinme.Constants
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
+import com.brycewg.pinme.extract.ExtractErrorStore
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.ui.components.EditRecordDialog
 import com.brycewg.pinme.ui.components.ExpandableFAB
@@ -74,6 +78,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import kotlin.math.roundToInt
 
 private const val PAGE_SIZE = 5
@@ -93,6 +98,10 @@ fun ExtractHome() {
     var showEditDialog by remember { mutableStateOf(false) }
 
     val marketItems by dao.getAllMarketItemsFlow().collectAsState(initial = emptyList())
+    val lastExtractError by dao
+        .getPreferenceFlow(Constants.PREF_LAST_EXTRACT_ERROR)
+        .collectAsState(initial = null)
+    val extractErrorText = lastExtractError?.trim().orEmpty()
 
     // 分页状态
     val extracts = remember { mutableStateListOf<ExtractEntity>() }
@@ -158,107 +167,123 @@ fun ExtractHome() {
             }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 列表内容
-        LazyColumn(
-            state = listState,
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (extractErrorText.isNotEmpty()) {
+            ExtractErrorCard(
+                errorText = extractErrorText,
+                onClick = {
+                    copyToClipboard(context, extractErrorText)
+                    scope.launch { ExtractErrorStore.clear(context) }
+                },
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+            )
+        }
+
+        Box(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .weight(1f)
+                    .fillMaxWidth(),
         ) {
-            if (extracts.isEmpty() && !isLoading) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("暂无记录", style = MiuixTheme.textStyles.main)
-                            Text(
-                                "点一下磁贴或点击右下角按钮添加。",
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(extracts.toList(), key = { it.id }) { item ->
-                    // 根据 title 匹配市场类型
-                    val matchedMarketItem = marketItems.find { it.title == item.title }
-                    // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
-                    val emoji = item.emoji ?: matchedMarketItem?.emoji
-                    ExtractCard(
-                        item = item,
-                        emoji = emoji,
-                        capsuleColor = matchedMarketItem?.capsuleColor,
-                        onEdit = {
-                            editTarget = item
-                            showEditDialog = true
-                        },
-                        onDelete = {
-                            // 如果删除的记录正在显示为通知则取消
-                            UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
-                            scope.launch {
-                                dao.deleteExtractById(item.id)
-                                PinMeWidget.updateWidgetContent(context.applicationContext)
-                            }
-                            Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
-                        },
-                    )
-                }
-
-                // 加载更多指示器
-                if (hasMore) {
+            LazyColumn(
+                state = listState,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (extracts.isEmpty() && !isLoading) {
                     item {
-                        Box(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                            contentAlignment = Alignment.Center,
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            if (isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                            } else {
-                                TextButton(
-                                    text = "加载更多",
-                                    onClick = { scope.launch { loadMore() } },
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("暂无记录", style = MiuixTheme.textStyles.main)
+                                Text(
+                                    "点一下磁贴或点击右下角按钮添加。",
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 )
                             }
                         }
                     }
+                } else {
+                    items(extracts.toList(), key = { it.id }) { item ->
+                        // 根据 title 匹配市场类型
+                        val matchedMarketItem = marketItems.find { it.title == item.title }
+                        // 优先使用 LLM 生成的 emoji，回退到类型预设的 emoji
+                        val emoji = item.emoji ?: matchedMarketItem?.emoji
+                        ExtractCard(
+                            item = item,
+                            emoji = emoji,
+                            capsuleColor = matchedMarketItem?.capsuleColor,
+                            onEdit = {
+                                editTarget = item
+                                showEditDialog = true
+                            },
+                            onDelete = {
+                                // 如果删除的记录正在显示为通知则取消
+                                UnifiedNotificationManager(context).cancelExtractNotificationIfExists(item.id)
+                                scope.launch {
+                                    dao.deleteExtractById(item.id)
+                                    PinMeWidget.updateWidgetContent(context.applicationContext)
+                                }
+                                Toast.makeText(context, "已删除", Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
+
+                    // 加载更多指示器
+                    if (hasMore) {
+                        item {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                } else {
+                                    TextButton(
+                                        text = "加载更多",
+                                        onClick = { scope.launch { loadMore() } },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 底部留出 FAB 的空间
+                item {
+                    Box(modifier = Modifier.padding(bottom = 80.dp))
                 }
             }
 
-            // 底部留出 FAB 的空间
-            item {
-                Box(modifier = Modifier.padding(bottom = 80.dp))
-            }
+            ExpandableFAB(
+                expanded = fabExpanded,
+                onExpandChange = { fabExpanded = it },
+                onManualClick = {
+                    fabExpanded = false
+                    showManualDialog = true
+                },
+                onImageClick = {
+                    fabExpanded = false
+                    actions?.onPickImage?.invoke()
+                },
+                onCameraClick = {
+                    fabExpanded = false
+                    actions?.onTakePhoto?.invoke()
+                },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+            )
         }
-
-        // 悬浮操作按钮
-        ExpandableFAB(
-            expanded = fabExpanded,
-            onExpandChange = { fabExpanded = it },
-            onManualClick = {
-                fabExpanded = false
-                showManualDialog = true
-            },
-            onImageClick = {
-                fabExpanded = false
-                actions?.onPickImage?.invoke()
-            },
-            onCameraClick = {
-                fabExpanded = false
-                actions?.onTakePhoto?.invoke()
-            },
-            modifier =
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-        )
     }
 
     // 手动添加对话框
@@ -289,6 +314,41 @@ fun ExtractHome() {
             showEditDialog = false
         },
     )
+}
+
+@Composable
+private fun ExtractErrorCard(
+    errorText: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        insideMargin = PaddingValues(16.dp),
+        colors =
+            CardDefaults.defaultColors(
+                color = MiuixTheme.colorScheme.errorContainer,
+                contentColor = MiuixTheme.colorScheme.onErrorContainer,
+            ),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onClick,
+    ) {
+        Text("识别失败", style = MiuixTheme.textStyles.main)
+        Text(
+            text = errorText,
+            style = MiuixTheme.textStyles.body2,
+            modifier = Modifier.padding(top = 6.dp),
+            maxLines = 8,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = "点击复制并关闭",
+            style = MiuixTheme.textStyles.footnote1,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
 }
 
 private enum class ExtractCardSwipeState {

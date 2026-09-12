@@ -19,6 +19,7 @@ import android.widget.Toast
 import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
+import com.brycewg.pinme.extract.ExtractErrorStore
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
@@ -209,6 +210,7 @@ class ShareProcessorService : Service() {
             bitmap.recycle()
         } catch (e: Exception) {
             Log.e(TAG, "processImage failed", e)
+            ExtractErrorStore.record(this, e)
             showToast("识别失败：${e.message}")
         }
     }
@@ -270,6 +272,7 @@ class ShareProcessorService : Service() {
             showToast("${entity.title}: ${entity.content}")
         } catch (e: Exception) {
             Log.e(TAG, "processText failed", e)
+            ExtractErrorStore.record(this, e)
             showToast("识别失败：${e.message}")
         }
     }

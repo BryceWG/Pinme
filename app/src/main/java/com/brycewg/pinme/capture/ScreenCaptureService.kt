@@ -25,6 +25,7 @@ import android.widget.Toast
 import com.brycewg.pinme.Constants
 import com.brycewg.pinme.R
 import com.brycewg.pinme.db.DatabaseProvider
+import com.brycewg.pinme.extract.ExtractErrorStore
 import com.brycewg.pinme.extract.ExtractWorkflow
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.qrcode.QrCodeDetector
@@ -201,6 +202,7 @@ class ScreenCaptureService : Service() {
                 showToast("${extract.title}: ${extract.content}$qrInfo")
             } catch (e: Exception) {
                 Log.e(TAG, "processScreenshot failed", e)
+                ExtractErrorStore.record(this, e)
                 showToast("模型处理失败")
             }
         } catch (e: Exception) {

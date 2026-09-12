@@ -32,6 +32,7 @@ object Constants {
     const val PREF_LLM_CUSTOM_BASE_URL = "llm_custom_base_url" // 自定义 Base URL (到 /v1 即可)
     const val PREF_LLM_EXTRA_PARAMS = "llm_extra_params" // 自定义推理参数（JSON 对象，追加到请求体）
     const val PREF_CUSTOM_SYSTEM_INSTRUCTION = "custom_system_instruction" // 自定义系统指令（角色描述）
+    const val PREF_LAST_EXTRACT_ERROR = "last_extract_error" // 最近一次识别失败的供应商报错
 
     // LLM 请求超时配置（全局生效，适用于测试连接、截图提取、文本提取）
     const val PREF_LLM_TIMEOUT_SECONDS = "llm_timeout_seconds" // 请求超时时间（秒）
