@@ -197,12 +197,6 @@ class PinMeWidget : GlanceAppWidget() {
                 } else {
                     stored
                 }
-            // #region agent log
-            Log.e(
-                TAG,
-                "hypothesisId=D location=provideContent storedIds=${stored.items.joinToString(",") { it.id.toString() }} fallbackIds=${data.items.joinToString(",") { it.id.toString() }} using=${if (stored.updateTime.isBlank() && stored.items.isEmpty()) "fallback" else "stored"}",
-            )
-            // #endregion
             GlanceTheme {
                 Content(rendered)
             }
@@ -390,12 +384,6 @@ class PinMeWidget : GlanceAppWidget() {
 
                 val data = loadDataDirectly(appContext)
                 val glanceIds = GlanceAppWidgetManager(appContext).getGlanceIds(PinMeWidget::class.java)
-                // #region agent log
-                Log.e(
-                    TAG,
-                    "hypothesisId=B location=updateWidgetContent itemIds=${data.items.joinToString(",") { it.id.toString() }} glanceIdCount=${glanceIds.size}",
-                )
-                // #endregion
                 glanceIds.forEach { glanceId ->
                     runCatching { writeWidgetState(appContext, glanceId, data) }
                         .onFailure { Log.e(TAG, "writeWidgetState failed", it) }
