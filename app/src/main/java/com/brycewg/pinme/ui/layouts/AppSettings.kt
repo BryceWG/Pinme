@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,8 +36,11 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -56,6 +60,7 @@ import com.brycewg.pinme.capture.CaptureActivity
 import com.brycewg.pinme.capture.RootCaptureService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.notification.UnifiedNotificationManager
+import com.brycewg.pinme.ui.PinMeTextField as TextField
 import com.brycewg.pinme.vllm.VllmClient
 import com.brycewg.pinme.vllm.getLlmScopedPreference
 import com.brycewg.pinme.vllm.migrateLegacyLlmPreferencesToScoped
@@ -79,7 +84,6 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -94,6 +98,10 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     val context = LocalContext.current
     val dao = DatabaseProvider.dao()
     val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val nextKeyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+    val nextKeyboardActions =
+        KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
 
     var selectedProvider by remember { mutableStateOf(LlmProvider.ZHIPU) }
     var apiKey by remember { mutableStateOf("") }
@@ -471,6 +479,8 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 modifier = Modifier.fillMaxWidth(),
                                 label = "Base URL（以/v1结尾）",
                                 singleLine = true,
+                                keyboardOptions = nextKeyboardOptions,
+                                keyboardActions = nextKeyboardActions,
                             )
                             Text(
                                 "输入到 /v1 即可，例如 https://api.example.com/v1",
@@ -492,11 +502,15 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                             } else {
                                 PasswordVisualTransformation()
                             },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        keyboardOptions = nextKeyboardOptions,
+                        keyboardActions = nextKeyboardActions,
                         trailingIcon = {
                             IconButton(
                                 onClick = { apiKeyVisible = !apiKeyVisible },
-                                modifier = Modifier.padding(end = 12.dp),
+                                modifier =
+                                    Modifier
+                                        .padding(end = 12.dp)
+                                        .focusProperties { canFocus = false },
                             ) {
                                 Icon(
                                     imageVector =
@@ -528,6 +542,8 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                         modifier = Modifier.fillMaxWidth(),
                         label = "视觉模型 ID",
                         singleLine = true,
+                        keyboardOptions = nextKeyboardOptions,
+                        keyboardActions = nextKeyboardActions,
                     )
                 }
 

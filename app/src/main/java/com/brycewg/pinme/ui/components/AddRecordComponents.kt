@@ -49,6 +49,7 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.extract.ExtractWorkflow
+import com.brycewg.pinme.ui.PinMeTextField as TextField
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Button
@@ -60,7 +61,6 @@ import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme

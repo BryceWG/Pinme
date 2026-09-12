@@ -53,6 +53,7 @@ import androidx.core.content.getSystemService
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.db.PresetMarketTypes
+import com.brycewg.pinme.ui.PinMeTextField as TextField
 import com.brycewg.pinme.widget.PinMeWidget
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
@@ -68,7 +69,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextFieldDefaults
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.theme.MiuixTheme
