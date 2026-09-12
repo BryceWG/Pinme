@@ -4,13 +4,12 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import com.brycewg.pinme.Constants
-import com.brycewg.pinme.Constants.LlmProvider
 import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.ExtractEntity
 import com.brycewg.pinme.db.MarketItemEntity
 import com.brycewg.pinme.db.PinMeDao
 import com.brycewg.pinme.vllm.VllmClient
-import com.brycewg.pinme.vllm.getLlmScopedPreferenceWithLegacyFallback
+import com.brycewg.pinme.vllm.loadLlmRuntimeConfig
 import java.io.ByteArrayOutputStream
 
 class ExtractWorkflow(
@@ -42,49 +41,7 @@ class ExtractWorkflow(
             DatabaseProvider.init(context)
         }
         val dao = DatabaseProvider.dao()
-
-        // 读取供应商配置
-        val provider = LlmProvider.fromStoredValue(dao.getPreference(Constants.PREF_LLM_PROVIDER))
-
-        // 根据供应商确定 baseUrl
-        val baseUrl =
-            when (provider) {
-                LlmProvider.CUSTOM -> {
-                    dao
-                        .getLlmScopedPreferenceWithLegacyFallback(
-                            Constants.PREF_LLM_CUSTOM_BASE_URL,
-                            provider,
-                        )?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: throw IllegalStateException("自定义模式下必须设置 Base URL")
-                }
-
-                else -> {
-                    provider.baseUrl
-                }
-            }
-
-        val apiKey =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_API_KEY, provider)
-                ?.takeIf { it.isNotBlank() }
-        val model =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_MODEL, provider)
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
-                ?: provider.defaultModel.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("必须设置模型 ID")
-        val temperature =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_TEMPERATURE, provider)
-                ?.toDoubleOrNull()
-                ?: 0.1
-        val extraParams =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_EXTRA_PARAMS, provider)
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
+        val llmConfig = dao.loadLlmRuntimeConfig()
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
         // 读取自定义系统指令
@@ -102,14 +59,14 @@ class ExtractWorkflow(
         val parseResult =
             parseModelOutputWithRetry {
                 vllmClient.chatCompletionWithImage(
-                    baseUrl = baseUrl,
-                    apiKey = apiKey,
-                    model = model,
+                    baseUrl = llmConfig.baseUrl,
+                    apiKey = llmConfig.apiKey,
+                    model = llmConfig.model,
                     systemPrompt = systemPrompt,
                     userPrompt = userPrompt,
                     imageBase64 = imageBase64,
-                    temperature = temperature,
-                    extraParamsJson = extraParams,
+                    temperature = llmConfig.temperature,
+                    extraParamsJson = llmConfig.extraParams,
                 )
             }
         val parsed = parseResult.parsed
@@ -173,49 +130,7 @@ class ExtractWorkflow(
             DatabaseProvider.init(context)
         }
         val dao = DatabaseProvider.dao()
-
-        // 读取供应商配置
-        val provider = LlmProvider.fromStoredValue(dao.getPreference(Constants.PREF_LLM_PROVIDER))
-
-        // 根据供应商确定 baseUrl
-        val baseUrl =
-            when (provider) {
-                LlmProvider.CUSTOM -> {
-                    dao
-                        .getLlmScopedPreferenceWithLegacyFallback(
-                            Constants.PREF_LLM_CUSTOM_BASE_URL,
-                            provider,
-                        )?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: throw IllegalStateException("自定义模式下必须设置 Base URL")
-                }
-
-                else -> {
-                    provider.baseUrl
-                }
-            }
-
-        val apiKey =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_API_KEY, provider)
-                ?.takeIf { it.isNotBlank() }
-        val model =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_MODEL, provider)
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
-                ?: provider.defaultModel.takeIf { it.isNotBlank() }
-                ?: throw IllegalStateException("必须设置模型 ID")
-        val temperature =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_TEMPERATURE, provider)
-                ?.toDoubleOrNull()
-                ?: 0.1
-        val extraParams =
-            dao
-                .getLlmScopedPreferenceWithLegacyFallback(Constants.PREF_LLM_EXTRA_PARAMS, provider)
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
+        val llmConfig = dao.loadLlmRuntimeConfig()
 
         // 读取启用的市场类型
         val marketItems = dao.getEnabledMarketItems()
@@ -231,13 +146,13 @@ class ExtractWorkflow(
         val parseResult =
             parseModelOutputWithRetry {
                 vllmClient.chatCompletion(
-                    baseUrl = baseUrl,
-                    apiKey = apiKey,
-                    model = model,
+                    baseUrl = llmConfig.baseUrl,
+                    apiKey = llmConfig.apiKey,
+                    model = llmConfig.model,
                     systemPrompt = systemPrompt,
                     userPrompt = text,
-                    temperature = temperature,
-                    extraParamsJson = extraParams,
+                    temperature = llmConfig.temperature,
+                    extraParamsJson = llmConfig.extraParams,
                 )
             }
 

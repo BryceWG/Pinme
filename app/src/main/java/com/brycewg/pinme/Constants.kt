@@ -24,7 +24,8 @@ object Constants {
     const val PREF_SOURCE_APP_JUMP_ENABLED = "source_app_jump_enabled" // 实况通知标题跳转来源应用
 
     // LLM 配置
-    const val PREF_LLM_PROVIDER = "llm_provider" // 供应商类型: zhipu / siliconflow / custom
+    const val PREF_LLM_PROVIDER = "llm_provider" // 当前渠道 ID: zhipu / siliconflow / custom / custom_<id>
+    const val PREF_LLM_CUSTOM_PRESETS = "llm_custom_presets" // 自定义渠道预设列表（JSON）
     const val PREF_LLM_API_KEY = "llm_api_key" // API Key
     const val PREF_LLM_MODEL = "llm_model" // 模型 ID
     const val PREF_LLM_TEMPERATURE = "llm_temperature" // 温度 (0.0 - 2.0)
@@ -61,6 +62,8 @@ object Constants {
         SILICONFLOW("硅基流动", "https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-VL-72B-Instruct"),
         CUSTOM("自定义", "", ""),
         ;
+
+        val isCustom: Boolean get() = this == CUSTOM
 
         companion object {
             fun fromStoredValue(value: String?): LlmProvider {

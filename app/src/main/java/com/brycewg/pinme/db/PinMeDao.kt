@@ -28,6 +28,9 @@ abstract class PinMeDao {
         insertPreference(PreferenceEntity(key, value))
     }
 
+    @Query("DELETE FROM preference WHERE prefKey = :prefKey")
+    abstract suspend fun deletePreference(prefKey: String)
+
     @Insert
     abstract suspend fun insertExtract(extract: ExtractEntity): Long
 

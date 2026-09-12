@@ -53,17 +53,26 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.brycewg.pinme.BuildConfig
 import com.brycewg.pinme.Constants
-import com.brycewg.pinme.Constants.LlmProvider
 import com.brycewg.pinme.R
 import com.brycewg.pinme.capture.AccessibilityCaptureService
 import com.brycewg.pinme.capture.CaptureActivity
 import com.brycewg.pinme.capture.RootCaptureService
 import com.brycewg.pinme.db.DatabaseProvider
+import com.brycewg.pinme.db.PinMeDao
 import com.brycewg.pinme.notification.UnifiedNotificationManager
 import com.brycewg.pinme.ui.PinMeTextField as TextField
+import com.brycewg.pinme.vllm.CustomLlmPreset
+import com.brycewg.pinme.vllm.DEFAULT_CUSTOM_CHANNEL_NAME
+import com.brycewg.pinme.vllm.LlmChannel
 import com.brycewg.pinme.vllm.VllmClient
+import com.brycewg.pinme.vllm.allLlmChannels
+import com.brycewg.pinme.vllm.deleteLlmScopedPreferences
 import com.brycewg.pinme.vllm.getLlmScopedPreference
+import com.brycewg.pinme.vllm.loadCustomLlmPresets
 import com.brycewg.pinme.vllm.migrateLegacyLlmPreferencesToScoped
+import com.brycewg.pinme.vllm.newCustomLlmPreset
+import com.brycewg.pinme.vllm.resolveLlmChannel
+import com.brycewg.pinme.vllm.saveCustomLlmPresets
 import com.brycewg.pinme.vllm.setLlmScopedPreference
 import com.brycewg.pinme.vllm.toStoredValue
 import kotlinx.coroutines.FlowPreview
@@ -103,17 +112,26 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     val nextKeyboardActions =
         KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
 
-    var selectedProvider by remember { mutableStateOf(LlmProvider.ZHIPU) }
+    var customPresets by remember { mutableStateOf<List<CustomLlmPreset>>(emptyList()) }
+    var selectedChannelId by remember { mutableStateOf(Constants.LlmProvider.ZHIPU.toStoredValue()) }
     var apiKey by remember { mutableStateOf("") }
-    var apiKeyVisible by remember(selectedProvider) { mutableStateOf(false) }
+    var apiKeyVisible by remember(selectedChannelId) { mutableStateOf(false) }
     var model by remember { mutableStateOf("") }
     var temperature by remember { mutableFloatStateOf(0.1f) }
     var customBaseUrl by remember { mutableStateOf("") }
+    var customName by remember { mutableStateOf(DEFAULT_CUSTOM_CHANNEL_NAME) }
     var extraParams by remember { mutableStateOf("") }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<String?>(null) }
     var isHydratingProviderPrefs by remember { mutableStateOf(true) }
+    var showDeleteChannelDialog by remember { mutableStateOf(false) }
     var maxHistoryCount by remember { mutableStateOf(Constants.DEFAULT_MAX_HISTORY_COUNT) }
+
+    val channels = remember(customPresets) { allLlmChannels(customPresets) }
+    val selectedChannel =
+        remember(selectedChannelId, customPresets) {
+            resolveLlmChannel(selectedChannelId, customPresets)
+        }
 
     // LLM 请求超时时间（秒，全局生效）
     var timeoutSeconds by remember { mutableStateOf(Constants.DEFAULT_LLM_TIMEOUT_SECONDS) }
@@ -140,52 +158,75 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     var sourceAppJumpEnabled by remember { mutableStateOf(false) }
 
     data class LlmPrefsDraft(
-        val provider: LlmProvider,
+        val channel: LlmChannel,
         val apiKey: String,
         val model: String,
         val temperature: Float,
         val customBaseUrl: String,
         val extraParams: String,
+        val customName: String,
     )
 
     var lastSavedDraft by remember { mutableStateOf<LlmPrefsDraft?>(null) }
 
+    fun currentLlmDraft(): LlmPrefsDraft =
+        LlmPrefsDraft(
+            channel = resolveLlmChannel(selectedChannelId, customPresets),
+            apiKey = apiKey,
+            model = model,
+            temperature = temperature,
+            customBaseUrl = customBaseUrl,
+            extraParams = extraParams,
+            customName = customName,
+        )
+
+    suspend fun persistLlmDraft(
+        targetDao: PinMeDao,
+        draft: LlmPrefsDraft,
+    ) {
+        if (draft == lastSavedDraft) return
+        val channelId = draft.channel.id
+        targetDao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, channelId, draft.apiKey)
+        targetDao.setLlmScopedPreference(
+            Constants.PREF_LLM_MODEL,
+            channelId,
+            draft.model.trim().ifBlank { draft.channel.defaultModel },
+        )
+        targetDao.setLlmScopedPreference(
+            Constants.PREF_LLM_TEMPERATURE,
+            channelId,
+            draft.temperature.toString(),
+        )
+        targetDao.setLlmScopedPreference(
+            Constants.PREF_LLM_CUSTOM_BASE_URL,
+            channelId,
+            draft.customBaseUrl.trim(),
+        )
+        targetDao.setLlmScopedPreference(
+            Constants.PREF_LLM_EXTRA_PARAMS,
+            channelId,
+            draft.extraParams.trim(),
+        )
+        if (draft.channel.isCustom) {
+            val name = draft.customName.trim().ifBlank { DEFAULT_CUSTOM_CHANNEL_NAME }
+            val updatedPresets =
+                customPresets.map { preset ->
+                    if (preset.id == channelId) preset.copy(name = name) else preset
+                }
+            if (updatedPresets != customPresets) {
+                targetDao.saveCustomLlmPresets(updatedPresets)
+                customPresets = updatedPresets
+            }
+        }
+        if (selectedChannelId == channelId) {
+            lastSavedDraft = draft
+        }
+    }
+
     // 立即保存当前配置的函数（用于退出时和测试前）
     val saveCurrentPrefsImmediately: suspend () -> Unit = {
         if (!isHydratingProviderPrefs) {
-            val draft =
-                LlmPrefsDraft(
-                    provider = selectedProvider,
-                    apiKey = apiKey,
-                    model = model,
-                    temperature = temperature,
-                    customBaseUrl = customBaseUrl,
-                    extraParams = extraParams,
-                )
-            if (draft != lastSavedDraft) {
-                dao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, draft.provider, draft.apiKey)
-                dao.setLlmScopedPreference(
-                    Constants.PREF_LLM_MODEL,
-                    draft.provider,
-                    draft.model.trim().ifBlank { draft.provider.defaultModel },
-                )
-                dao.setLlmScopedPreference(
-                    Constants.PREF_LLM_TEMPERATURE,
-                    draft.provider,
-                    draft.temperature.toString(),
-                )
-                dao.setLlmScopedPreference(
-                    Constants.PREF_LLM_CUSTOM_BASE_URL,
-                    draft.provider,
-                    draft.customBaseUrl.trim(),
-                )
-                dao.setLlmScopedPreference(
-                    Constants.PREF_LLM_EXTRA_PARAMS,
-                    draft.provider,
-                    draft.extraParams.trim(),
-                )
-                lastSavedDraft = draft
-            }
+            persistLlmDraft(dao, currentLlmDraft())
         }
     }
 
@@ -247,39 +288,34 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
     var hasInitialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        val provider = LlmProvider.fromStoredValue(dao.getPreference(Constants.PREF_LLM_PROVIDER))
-        dao.migrateLegacyLlmPreferencesToScoped(
-            provider = provider,
-            baseKeys =
-                listOf(
-                    Constants.PREF_LLM_API_KEY,
-                    Constants.PREF_LLM_MODEL,
-                    Constants.PREF_LLM_TEMPERATURE,
-                    Constants.PREF_LLM_CUSTOM_BASE_URL,
-                ),
-        )
-        selectedProvider = provider
+        val presets = dao.loadCustomLlmPresets()
+        customPresets = presets
+        val channel = resolveLlmChannel(dao.getPreference(Constants.PREF_LLM_PROVIDER), presets)
+        dao.migrateLegacyLlmPreferencesToScoped(channel.id)
+        selectedChannelId = channel.id
 
         // 首次加载：直接在这里加载配置
         isHydratingProviderPrefs = true
-        apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, provider) ?: ""
-        model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, provider)
-            ?: provider.defaultModel
+        apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, channel.id) ?: ""
+        model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, channel.id)
+            ?: channel.defaultModel
         temperature = dao
-            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, provider)
+            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, channel.id)
             ?.toFloatOrNull()
             ?: 0.1f
-        customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, provider)
+        customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, channel.id)
             ?: ""
-        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, provider) ?: ""
+        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, channel.id) ?: ""
+        customName = presets.firstOrNull { it.id == channel.id }?.name ?: DEFAULT_CUSTOM_CHANNEL_NAME
         lastSavedDraft =
             LlmPrefsDraft(
-                provider = provider,
+                channel = channel,
                 apiKey = apiKey,
                 model = model,
                 temperature = temperature,
                 customBaseUrl = customBaseUrl,
                 extraParams = extraParams,
+                customName = customName,
             )
         isHydratingProviderPrefs = false
         hasInitialized = true
@@ -326,73 +362,47 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         accessibilityServiceEnabled = AccessibilityCaptureService.isServiceEnabled(context)
     }
 
-    LaunchedEffect(selectedProvider, hasInitialized) {
-        // 只在初始化完成后且 provider 切换时才执行
+    LaunchedEffect(selectedChannelId, hasInitialized) {
+        // 只在初始化完成后且渠道切换时才执行
         if (!hasInitialized) return@LaunchedEffect
         isHydratingProviderPrefs = true
-        apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, selectedProvider) ?: ""
-        model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, selectedProvider)
-            ?: selectedProvider.defaultModel
+        val channel = resolveLlmChannel(selectedChannelId, customPresets)
+        apiKey = dao.getLlmScopedPreference(Constants.PREF_LLM_API_KEY, channel.id) ?: ""
+        model = dao.getLlmScopedPreference(Constants.PREF_LLM_MODEL, channel.id)
+            ?: channel.defaultModel
         temperature = dao
-            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, selectedProvider)
+            .getLlmScopedPreference(Constants.PREF_LLM_TEMPERATURE, channel.id)
             ?.toFloatOrNull()
             ?: 0.1f
-        customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, selectedProvider)
+        customBaseUrl = dao.getLlmScopedPreference(Constants.PREF_LLM_CUSTOM_BASE_URL, channel.id)
             ?: ""
-        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, selectedProvider)
+        extraParams = dao.getLlmScopedPreference(Constants.PREF_LLM_EXTRA_PARAMS, channel.id)
             ?: ""
+        customName = customPresets.firstOrNull { it.id == channel.id }?.name
+            ?: DEFAULT_CUSTOM_CHANNEL_NAME
         lastSavedDraft =
             LlmPrefsDraft(
-                provider = selectedProvider,
+                channel = channel,
                 apiKey = apiKey,
                 model = model,
                 temperature = temperature,
                 customBaseUrl = customBaseUrl,
                 extraParams = extraParams,
+                customName = customName,
             )
         isHydratingProviderPrefs = false
     }
 
     LaunchedEffect(Unit) {
         snapshotFlow {
-            isHydratingProviderPrefs to
-                LlmPrefsDraft(
-                    provider = selectedProvider,
-                    apiKey = apiKey,
-                    model = model,
-                    temperature = temperature,
-                    customBaseUrl = customBaseUrl,
-                    extraParams = extraParams,
-                )
+            isHydratingProviderPrefs to currentLlmDraft()
         }.filter { (hydrating, _) -> !hydrating }
             .map { (_, draft) -> draft }
             .distinctUntilChanged()
             .debounce(500)
             .collectLatest { draft ->
                 if (draft == lastSavedDraft) return@collectLatest
-
-                latestDao.setLlmScopedPreference(Constants.PREF_LLM_API_KEY, draft.provider, draft.apiKey)
-                latestDao.setLlmScopedPreference(
-                    Constants.PREF_LLM_MODEL,
-                    draft.provider,
-                    draft.model.trim().ifBlank { draft.provider.defaultModel },
-                )
-                latestDao.setLlmScopedPreference(
-                    Constants.PREF_LLM_TEMPERATURE,
-                    draft.provider,
-                    draft.temperature.toString(),
-                )
-                latestDao.setLlmScopedPreference(
-                    Constants.PREF_LLM_CUSTOM_BASE_URL,
-                    draft.provider,
-                    draft.customBaseUrl.trim(),
-                )
-                latestDao.setLlmScopedPreference(
-                    Constants.PREF_LLM_EXTRA_PARAMS,
-                    draft.provider,
-                    draft.extraParams.trim(),
-                )
-                lastSavedDraft = draft
+                persistLlmDraft(latestDao, draft)
             }
     }
 
@@ -436,6 +446,45 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
         },
     )
 
+    OverlayDialog(
+        show = showDeleteChannelDialog,
+        title = "删除自定义渠道",
+        summary = "将删除「${selectedChannel.displayName}」及其 API 配置，此操作不可撤销。",
+        onDismissRequest = { showDeleteChannelDialog = false },
+        content = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(text = "取消", onClick = { showDeleteChannelDialog = false })
+                TextButton(
+                    text = "删除",
+                    onClick = {
+                        val deletingId = selectedChannel.id
+                        if (!selectedChannel.isCustom) {
+                            showDeleteChannelDialog = false
+                            return@TextButton
+                        }
+                        val remaining = customPresets.filter { it.id != deletingId }
+                        val nextId =
+                            remaining.lastOrNull()?.id
+                                ?: Constants.LlmProvider.ZHIPU.toStoredValue()
+                        showDeleteChannelDialog = false
+                        isHydratingProviderPrefs = true
+                        customPresets = remaining
+                        selectedChannelId = nextId
+                        testResult = null
+                        scope.launch {
+                            dao.deleteLlmScopedPreferences(deletingId)
+                            dao.saveCustomLlmPresets(remaining)
+                            dao.setPreference(Constants.PREF_LLM_PROVIDER, nextId)
+                        }
+                    },
+                )
+            }
+        },
+    )
+
     Column(
         modifier =
             Modifier
@@ -451,36 +500,95 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OverlayDropdownPreference(
-                    items = LlmProvider.entries.map { it.displayName },
-                    selectedIndex = LlmProvider.entries.indexOf(selectedProvider).coerceAtLeast(0),
-                    title = "LLM 供应商",
+                    items = channels.map { it.displayName },
+                    selectedIndex = channels.indexOfFirst { it.id == selectedChannel.id }.coerceAtLeast(0),
+                    title = "API 渠道",
                     onSelectedIndexChange = { index ->
-                        val provider = LlmProvider.entries.getOrNull(index) ?: return@OverlayDropdownPreference
+                        val channel = channels.getOrNull(index) ?: return@OverlayDropdownPreference
+                        if (channel.id == selectedChannelId) return@OverlayDropdownPreference
+                        val previous = currentLlmDraft()
                         isHydratingProviderPrefs = true
-                        selectedProvider = provider
+                        selectedChannelId = channel.id
+                        testResult = null
                         scope.launch {
-                            dao.setPreference(
-                                Constants.PREF_LLM_PROVIDER,
-                                provider.toStoredValue(),
-                            )
+                            persistLlmDraft(dao, previous)
+                            dao.setPreference(Constants.PREF_LLM_PROVIDER, channel.id)
                         }
                     },
+                )
+
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Button(
+                        onClick = {
+                            val previous = currentLlmDraft()
+                            val newPreset = newCustomLlmPreset(customPresets)
+                            val updatedPresets = customPresets + newPreset
+                            isHydratingProviderPrefs = true
+                            customPresets = updatedPresets
+                            selectedChannelId = newPreset.id
+                            customName = newPreset.name
+                            apiKey = ""
+                            model = ""
+                            temperature = 0.1f
+                            customBaseUrl = ""
+                            extraParams = ""
+                            testResult = null
+                            scope.launch {
+                                persistLlmDraft(dao, previous)
+                                dao.saveCustomLlmPresets(customPresets)
+                                dao.setPreference(Constants.PREF_LLM_PROVIDER, newPreset.id)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("添加渠道")
+                    }
+                    if (selectedChannel.isCustom) {
+                        Button(
+                            onClick = { showDeleteChannelDialog = true },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("删除渠道")
+                        }
+                    }
+                }
+
+                Text(
+                    text = "可添加多个自定义渠道并命名，便于在不同 API 预设间切换",
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
 
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    if (selectedProvider == LlmProvider.CUSTOM) {
-                            TextField(
-                                value = customBaseUrl,
-                                onValueChange = { customBaseUrl = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = "Base URL（以/v1结尾）",
-                                singleLine = true,
-                                keyboardOptions = nextKeyboardOptions,
-                                keyboardActions = nextKeyboardActions,
-                            )
+                    if (selectedChannel.isCustom) {
+                        TextField(
+                            value = customName,
+                            onValueChange = { customName = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "渠道名称",
+                            singleLine = true,
+                            keyboardOptions = nextKeyboardOptions,
+                            keyboardActions = nextKeyboardActions,
+                        )
+                        TextField(
+                            value = customBaseUrl,
+                            onValueChange = { customBaseUrl = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = "Base URL（以/v1结尾）",
+                            singleLine = true,
+                            keyboardOptions = nextKeyboardOptions,
+                            keyboardActions = nextKeyboardActions,
+                        )
                     }
 
                     TextField(
@@ -590,19 +698,15 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 saveCurrentPrefsImmediately()
 
                                 val baseUrl =
-                                    when (selectedProvider) {
-                                        LlmProvider.CUSTOM -> {
-                                            customBaseUrl.trim().takeIf { it.isNotBlank() }
-                                                ?: throw IllegalStateException("请填写 Base URL")
-                                        }
-
-                                        else -> {
-                                            selectedProvider.baseUrl
-                                        }
+                                    if (selectedChannel.isCustom) {
+                                        customBaseUrl.trim().takeIf { it.isNotBlank() }
+                                            ?: throw IllegalStateException("请填写 Base URL")
+                                    } else {
+                                        selectedChannel.baseUrl
                                     }
                                 val testModel =
                                     model.trim().takeIf { it.isNotBlank() }
-                                        ?: selectedProvider.defaultModel.takeIf { it.isNotBlank() }
+                                        ?: selectedChannel.defaultModel.takeIf { it.isNotBlank() }
                                         ?: throw IllegalStateException("请填写模型 ID")
                                 val testImageBase64 = loadAppIconBase64(context)
 
