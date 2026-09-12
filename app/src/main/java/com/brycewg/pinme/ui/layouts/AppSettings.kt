@@ -472,7 +472,6 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (selectedProvider == LlmProvider.CUSTOM) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextField(
                                 value = customBaseUrl,
                                 onValueChange = { customBaseUrl = it },
@@ -482,12 +481,6 @@ fun AppSettings(onShowTutorial: () -> Unit = {}) {
                                 keyboardOptions = nextKeyboardOptions,
                                 keyboardActions = nextKeyboardActions,
                             )
-                            Text(
-                                "输入到 /v1 即可，例如 https://api.example.com/v1",
-                                style = MiuixTheme.textStyles.footnote1,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                            )
-                        }
                     }
 
                     TextField(
