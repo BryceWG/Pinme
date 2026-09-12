@@ -358,7 +358,7 @@ private fun ExtractErrorCard(
             text = errorText,
             style = MiuixTheme.textStyles.body2,
             modifier = Modifier.padding(top = 6.dp),
-            maxLines = 8,
+            maxLines = 16,
             overflow = TextOverflow.Ellipsis,
         )
         Text(

@@ -210,7 +210,7 @@ class RootCaptureService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "processScreenshot failed", e)
             ExtractErrorStore.record(this, e)
-            showToast("模型处理失败")
+            showToast(ExtractErrorStore.FAILURE_TOAST)
         } finally {
             bitmap.recycle()
         }

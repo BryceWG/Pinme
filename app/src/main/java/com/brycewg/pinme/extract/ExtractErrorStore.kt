@@ -6,6 +6,8 @@ import com.brycewg.pinme.db.DatabaseProvider
 import com.brycewg.pinme.db.PinMeDao
 
 object ExtractErrorStore {
+    const val FAILURE_TOAST = "识别失败，详情见首页"
+
     suspend fun record(
         context: Context,
         error: Throwable,
@@ -27,8 +29,34 @@ object ExtractErrorStore {
     }
 
     fun format(error: Throwable): String {
-        val message = error.message?.trim().orEmpty()
-        return message.ifBlank { error::class.java.simpleName }
+        fun Throwable.headline(): String {
+            val name = javaClass.simpleName.ifBlank { javaClass.name }
+            val message = message?.trim().orEmpty()
+            return if (message.isBlank()) name else "$name: $message"
+        }
+
+        return buildString {
+            var current: Throwable? = error
+            val seen = mutableSetOf<Throwable>()
+            var first = true
+            while (current != null && seen.add(current)) {
+                if (first) {
+                    append(current.headline())
+                    first = false
+                } else {
+                    append("\nCaused by: ")
+                    append(current.headline())
+                }
+                current = current.cause
+            }
+            val frames = error.stackTrace.take(16)
+            if (frames.isNotEmpty()) {
+                frames.forEach { frame ->
+                    append("\n  at ")
+                    append(frame.toString())
+                }
+            }
+        }
     }
 
     private fun dao(context: Context): PinMeDao {

@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -261,11 +262,12 @@ class MainActivity : ComponentActivity() {
 
                 bitmap.recycle()
             } catch (e: Exception) {
+                Log.e("MainActivity", "processImageUri failed", e)
                 ExtractErrorStore.record(this@MainActivity, e)
                 Toast
                     .makeText(
                         this@MainActivity,
-                        "识别失败：${e.message}",
+                        ExtractErrorStore.FAILURE_TOAST,
                         Toast.LENGTH_SHORT,
                     ).show()
             }
@@ -500,11 +502,12 @@ class MainActivity : ComponentActivity() {
                 val toastText = if (isLive) "已识别并挂到实况通知" else "已识别并发送通知"
                 Toast.makeText(this@MainActivity, toastText, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
+                Log.e("MainActivity", "processSharedText failed", e)
                 ExtractErrorStore.record(this@MainActivity, e)
                 Toast
                     .makeText(
                         this@MainActivity,
-                        "识别失败：${e.message}",
+                        ExtractErrorStore.FAILURE_TOAST,
                         Toast.LENGTH_SHORT,
                     ).show()
             }

@@ -211,7 +211,7 @@ class ShareProcessorService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "processImage failed", e)
             ExtractErrorStore.record(this, e)
-            showToast("识别失败：${e.message}")
+            showToast(ExtractErrorStore.FAILURE_TOAST)
         }
     }
 
@@ -273,7 +273,7 @@ class ShareProcessorService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "processText failed", e)
             ExtractErrorStore.record(this, e)
-            showToast("识别失败：${e.message}")
+            showToast(ExtractErrorStore.FAILURE_TOAST)
         }
     }
 

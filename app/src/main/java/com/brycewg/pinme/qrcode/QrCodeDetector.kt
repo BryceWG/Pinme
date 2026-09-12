@@ -3,6 +3,7 @@ package com.brycewg.pinme.qrcode
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.util.Log
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -38,13 +39,14 @@ object QrCodeDetector {
      */
     suspend fun detect(bitmap: Bitmap): QrCodeResult? =
         withContext(Dispatchers.Default) {
-            val scanner = BarcodeScanning.getClient()
-            val image = InputImage.fromBitmap(bitmap, 0)
-
+            var scanner: BarcodeScanner? = null
             try {
+                val client = BarcodeScanning.getClient()
+                scanner = client
+                val image = InputImage.fromBitmap(bitmap, 0)
                 val barcodes =
                     suspendCancellableCoroutine { cont ->
-                        scanner
+                        client
                             .process(image)
                             .addOnSuccessListener { cont.resume(it) }
                             .addOnFailureListener { cont.resumeWithException(it) }
@@ -74,7 +76,7 @@ object QrCodeDetector {
                 Log.e(TAG, "QR code detection failed", e)
                 null
             } finally {
-                scanner.close()
+                runCatching { scanner?.close() }
             }
         }
 

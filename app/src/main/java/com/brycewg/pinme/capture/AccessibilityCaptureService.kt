@@ -243,7 +243,7 @@ class AccessibilityCaptureService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "processScreenshot failed", e)
                 ExtractErrorStore.record(this@AccessibilityCaptureService, e)
-                showToast("模型处理失败：${e.message}")
+                showToast(ExtractErrorStore.FAILURE_TOAST)
             } finally {
                 bitmap.recycle()
             }

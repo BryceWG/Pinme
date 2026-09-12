@@ -14,8 +14,8 @@ android {
         applicationId = "com.brycewg.pinme"
         minSdk = 33
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.4.1"
+        versionCode = 12
+        versionName = "1.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -104,6 +104,10 @@ dependencies {
     }
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkit.barcode.scanning)
+    // barcode-scanning 17.3.0 仍传递 firebase-components 16.1.0，缺少 AGP 9 R8 所需 keep
+    constraints {
+        implementation(libs.firebase.components)
+    }
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

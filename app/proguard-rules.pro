@@ -23,8 +23,17 @@
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
 
-# ML Kit - 只保留必要的
+# ML Kit barcode + AGP 9 R8 full mode
+# BarcodeScanning.getClient() 会在 ComponentRegistrar / 内部类被剥离时 NPE：
+# Attempt to invoke virtual method 'java.lang.Class java.lang.Object.getClass()'
+# https://github.com/googlesamples/mlkit/issues/1018
 -dontwarn com.google.mlkit.**
+-keep class * implements com.google.firebase.components.ComponentRegistrar { void <init>(); }
+-keep,allowshrinking interface com.google.firebase.components.ComponentRegistrar
+-keep class com.google.mlkit.common.** { *; }
+-keep class com.google.mlkit.vision.barcode.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_barcode.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_common.** { *; }
 
 # 移除 release 版本的日志
 -assumenosideeffects class android.util.Log {
