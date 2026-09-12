@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.text.format.DateFormat
 import android.util.Base64
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -233,6 +234,12 @@ fun ExtractHome() {
                                 }
                                 scope.launch {
                                     dao.updateExtractArchived(item.id, archived)
+                                    // #region agent log
+                                    Log.e(
+                                        "PinMeWidget",
+                                        "hypothesisId=A location=ExtractHome.onArchive id=${item.id} archived=$archived",
+                                    )
+                                    // #endregion
                                     PinMeWidget.updateWidgetContent(context.applicationContext)
                                 }
                                 Toast.makeText(

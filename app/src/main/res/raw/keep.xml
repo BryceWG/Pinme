@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@layout/widget_initial_layout,@layout/live_notification*,@drawable/widget_*,@drawable/ic_capsule_ring,@drawable/ic_stat_pin,@drawable/ic_qs_pin,@xml/widget_info,@xml/live_notification_config,@xml/accessibility_service_config,@xml/shortcuts,@xml/file_paths" />

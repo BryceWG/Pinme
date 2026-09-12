@@ -185,11 +185,24 @@ class PinMeWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val data = loadDataDirectly(context)
-        writeWidgetState(context, id, data)
+        runCatching { writeWidgetState(context, id, data) }
+            .onFailure { Log.e(TAG, "writeWidgetState failed", it) }
 
         provideContent {
             val prefs = currentState<Preferences>()
-            val rendered = readWidgetState(prefs)
+            val stored = readWidgetState(prefs)
+            val rendered =
+                if (stored.updateTime.isBlank() && stored.items.isEmpty()) {
+                    data
+                } else {
+                    stored
+                }
+            // #region agent log
+            Log.e(
+                TAG,
+                "hypothesisId=D location=provideContent storedIds=${stored.items.joinToString(",") { it.id.toString() }} fallbackIds=${data.items.joinToString(",") { it.id.toString() }} using=${if (stored.updateTime.isBlank() && stored.items.isEmpty()) "fallback" else "stored"}",
+            )
+            // #endregion
             GlanceTheme {
                 Content(rendered)
             }
@@ -377,8 +390,15 @@ class PinMeWidget : GlanceAppWidget() {
 
                 val data = loadDataDirectly(appContext)
                 val glanceIds = GlanceAppWidgetManager(appContext).getGlanceIds(PinMeWidget::class.java)
+                // #region agent log
+                Log.e(
+                    TAG,
+                    "hypothesisId=B location=updateWidgetContent itemIds=${data.items.joinToString(",") { it.id.toString() }} glanceIdCount=${glanceIds.size}",
+                )
+                // #endregion
                 glanceIds.forEach { glanceId ->
-                    writeWidgetState(appContext, glanceId, data)
+                    runCatching { writeWidgetState(appContext, glanceId, data) }
+                        .onFailure { Log.e(TAG, "writeWidgetState failed", it) }
                 }
                 PinMeWidget().updateAll(appContext)
             } catch (e: Exception) {
